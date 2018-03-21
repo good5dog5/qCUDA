@@ -13,7 +13,7 @@
 #include <sys/syscall.h>
 
 #include <builtin_types.h>
-#include <__cudaFatFormat.h>
+/* #include <__cudaFatFormat.h> */
 #include <fatBinaryCtl.h>
 
 #include "time_measure.h"
