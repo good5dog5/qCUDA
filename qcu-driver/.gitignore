@@ -1,0 +1,6 @@
+.qcuda.ko.cmd
+.qcuda.mod.o.cmd
+.qcuda_driver.o.cmd
+Module.symvers
+modules.order
+qcuda.mod.c
