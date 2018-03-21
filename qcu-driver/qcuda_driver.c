@@ -15,11 +15,11 @@
 #include <linux/virtio.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_pci.h>
+#include <linux/virtio_config.h>
 #include <linux/scatterlist.h>
 #include <linux/random.h>
 #include <linux/io.h>
 #include <linux/sort.h>
-
 
 #include "qcuda_common.h"
 
