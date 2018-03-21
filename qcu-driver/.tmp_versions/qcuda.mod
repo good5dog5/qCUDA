@@ -1,2 +1,2 @@
-/home/cjacky/GitHub/qCUDA/qcu-driver/qcuda.ko
-/home/cjacky/GitHub/qCUDA/qcu-driver/qcuda_driver.o
+/root/qCUDA/qcu-driver/qcuda.ko
+/root/qCUDA/qcu-driver/qcuda_driver.o
