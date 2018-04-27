@@ -5,7 +5,7 @@ INCLUDE_PATH  := -I $(CUDA_HOME)/samples/common/inc/ \
 
 
 CC            := g++ -std=c++11
-NVCC          := $(CUDA_HOME)/bin/nvcc  -ccbin $(CC) -m64 -arch=sm_30  
+NVCC          := $(CUDA_HOME)/bin/nvcc  -ccbin $(CC) -m64   -gencode arch=compute_20,code=sm_21
 NVCCFLAGS     := -cudart=shared
 LDFLAGS       := 
 
