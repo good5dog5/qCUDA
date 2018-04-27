@@ -15,7 +15,7 @@ libcudart:
 
 lib: $(LIB)
 
-install: 
+install: libcudart
 	sudo cp libcudart.so /usr/local/lib/
 	sudo ln -sf libcudart.so /usr/local/lib/libcudart.so.7.5
 	sudo rm -f /etc/ld.so.conf.d/cuda-7.5.conf

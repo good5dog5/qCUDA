@@ -18,7 +18,7 @@ clean:
 	make -C $(KERDIR) M=$(PWD) clean
 	rm -f modules.order *.o *.mod.c *.mod.o *.ko
 
-i insmod:
+i insmod: c
 	sudo dmesg -C
 	sudo insmod $(MOD).ko
 	-sudo chmod 666 /dev/qcuda
