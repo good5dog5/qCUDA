@@ -1,2 +1,2 @@
-libcudart.so
+*.so
 *.deb
