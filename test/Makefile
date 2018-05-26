@@ -1,62 +1,41 @@
-INCLUDE_PATH  := -I $(CUDA_HOME)/samples/common/inc/ \
-		 	 -I include/ \
-			 -I /usr/local/cuda/include/ \
-			 -I ./
+EXEC ?= @echo "[@]"
+INCLUDES  := -I$(CUDA_HOME)/samples/common/inc
 
+ARCH= -gencode arch=compute_62,code=sm_62 
 
-CC            := g++ -std=c++11
-NVCC          := $(CUDA_HOME)/bin/nvcc  -ccbin $(CC) -m64   -gencode arch=compute_20,code=sm_21
-NVCCFLAGS     := -cudart=shared
-LDFLAGS       := 
-
-
-EXECUTABLEs=test_cudaGetDeviceCount\
-			test_cudaFuncGetAttributes
-
-SRCs=$(addsuffix .cu, $(EXECUTABLEs))
-OBJs=$(addsuffix  .o, $(EXECUTABLEs))
-# OBJs += main.o
+HOST_COMPILER ?= g++
+NVCC          := $(CUDA_HOME)/bin/nvcc -ccbin $(HOST_COMPILER)
+NVCCFLAGS     := -m64  --cudart=shared $(ARCH)
 
 .PHONY: clean
 
-all: $(EXECUTABLEs)
+EXE = cudaGetDeviceCount \
+	cudaHostAlloc \
+	cudaHostRegister \
+	vectorAdd \
+	matrixMul 
+	
+all: $(EXE)
 
-test_cudaGetDeviceCount: test_cudaGetDeviceCount.cu
-	$(NVCC)  $(NVCCFLAGS) -o $@ $<
 
-test_cudaFuncGetAttributes: test_cudaFuncGetAttributes.cu
-	$(NVCC)  $(NVCCFLAGS) -lcriterion -o $@ $<
+cudaGetDeviceCount: src/test_cudaGetDeviceCount.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
+
+cudaHostAlloc: src/test_cudaHostAlloc.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
+
+malloc: src/malloc.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
+
+cudaHostRegister: src/test_cudaHostRegister.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
+
+vectorAdd: src/vectorAdd.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
+
+matrixMul: src/matrixMul.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
 
 clean:
-	@rm  -f $(OBJs) $(EXECUTABLEs)
+	@rm -f  $(EXE)
 
-
-run: cudaFuncGetAttributes
-	@./cudaFuncGetAttributes
-
-# %.o: %.cu 
-# 	$(NVCC)  $(NVCCFLAGS) $(INCLUDE_PATH)   -o $@ -c $<
-
-# %.o: %.c 
-# 	$(CC) -c -o $@ $(INCLUDE_PATH) $(LDFLAGS)   $<
-# test_cudaGetDeviceCount: test_cudaGetDeviceCount.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)  $< -o $@
-#
-# test_cudaHostAlloc: test_cudaHostAlloc.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)  $< -o $@
-#
-# test_cudaHostRegister: test_cudaHostRegister.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)   $< -o $@
-#
-# test_cudaFuncGetAttributes: test_cudaFuncGetAttributes.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)   $< -o $@
-
-
-# EXECUTABLEs=test_cudaGetDeviceCount\
-# 			test_cudaHostAlloc\
-# 			test_cudaHostRegister\
-# 			test_cudaFuncGetAttributes
-#
-# SRCS := $(wildcard *.cu)
-# EXECUTABLEs := $(basename  $(SRCS))
-# OBJs := $(addsuffix  .o, $(EXECUTABLEs))
