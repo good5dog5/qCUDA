@@ -23,15 +23,15 @@
 
 #include "qcuda_common.h"
 
-#if 0
+#if 1
 #define pfunc() printk("### %s : %d\n", __func__, __LINE__)
 #else
 #define pfunc()
 #endif
 
-#if 0
+#if 1
 #define ptrace(fmt, arg...) \
-	printk("    ### " fmt, ##arg)
+	printk("    ### " fmt, ##arg, __LINE__)
 #else
 #define ptrace(fmt, arg...)
 #endif
@@ -357,6 +357,12 @@ void qcu_cudaRegisterFunction(VirtioQCArg *arg)
 	kfree_gpa(arg->pB, arg->pBSize);
 }
 
+void qcu_cudaRegisterVar(VirtioQCArg *arg)
+{
+	qcu_misc_send_cmd(arg);
+}
+
+
 void qcu_cudaLaunch(VirtioQCArg *arg)
 {	// pA: cuda kernel configuration
 	// pB: cuda kernel parameters
@@ -370,6 +376,21 @@ void qcu_cudaLaunch(VirtioQCArg *arg)
 	kfree_gpa(arg->pA, arg->pASize);
 	kfree_gpa(arg->pB, arg->pBSize);
 }
+
+void qcu_cudaFuncGetAttributes(VirtioQCArg *arg)
+{
+	void *prop;
+	prop = (void*)arg->pA;
+	arg->pA = user_to_gpa( 0, arg->pASize);	
+	arg->pB = user_to_gpa(arg->pB, arg->pBSize);
+
+	qcu_misc_send_cmd(arg);
+
+
+	gpa_to_user(prop, arg->pA, arg->pASize);	
+	kfree_gpa(arg->pA, arg->pASize);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ///	Memory Management
@@ -663,6 +684,15 @@ void qcu_cudaSetDevice(VirtioQCArg *arg)
 	qcu_misc_send_cmd(arg);
 }
 
+void qcu_cudaDeviceSetCacheConfig(VirtioQCArg *arg)
+{
+	pfunc();
+
+	qcu_misc_send_cmd(arg);
+}
+
+
+
 void qcu_cudaGetDeviceProperties(VirtioQCArg *arg)
 {
 	void* prop;
@@ -689,6 +719,18 @@ void qcu_cudaDeviceReset(VirtioQCArg *arg)
 {
 	pfunc();
 
+	qcu_misc_send_cmd(arg);
+}
+
+void qcu_cudaDeviceSetLimit(VirtioQCArg *arg)
+{
+	pfunc();
+
+	qcu_misc_send_cmd(arg);
+}
+
+void qcu_cudaDeviceGetAttribute(VirtioQCArg *arg)
+{
 	qcu_misc_send_cmd(arg);
 }
 
@@ -733,6 +775,13 @@ void qcu_cudaEventRecord(VirtioQCArg *arg)
 	qcu_misc_send_cmd(arg);
 }
 
+void qcu_cudaStreamWaitEvent(VirtioQCArg *arg)
+{
+	pfunc();
+
+	qcu_misc_send_cmd(arg);
+}
+
 void qcu_cudaEventSynchronize(VirtioQCArg *arg)
 {
 	pfunc();
@@ -759,6 +808,13 @@ void qcu_cudaEventDestroy(VirtioQCArg *arg)
 ////////////////////////////////////////////////////////////////////////////////
 
 void qcu_cudaGetLastError(VirtioQCArg *arg)
+{
+	pfunc();
+
+	qcu_misc_send_cmd(arg);
+}
+
+void qcu_cudaPeekAtLastError(VirtioQCArg *arg)
 {
 	pfunc();
 
@@ -931,8 +987,10 @@ void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 	//TODO: if not find
 	group = find_page_group(arg->pA, priv);
 	priv->group = group;
+    pfunc();
 
 	arg->pB = priv->block_size*priv->group->numOfblocks;
+    pfunc();
 	
 	//TODO: error handling	
 	mmapctl(priv);
@@ -945,35 +1003,11 @@ void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 	arg->pA = gasp;
 	qcu_misc_send_cmd(arg);
 	free_gpa_array(arg->pA);
+    pfunc();
 
 	group->data = arg->rnd; //fix for cudaHostGetDevicePointer
 }
 
-/*
-void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
-{
-	struct virtio_qc_page *group;
-
-	//TODO: if not find
-	group = find_page_group(arg->pA, priv);
-	priv->group = group;
-
-	arg->pB = priv->block_size*priv->group->numOfblocks;
-
-	//TODO: error handling	
-	mmapctl(priv);
-	qcummap(priv);
-
-	arg->pA = arg->pA - group->uvm_start; //offset 
-	arg->pBSize = group->file; //fd
-
-	ptrace("group->uvm_start = %lx\n", group->uvm_start);
-
-	qcu_misc_send_cmd(arg);
-
-	group->data = arg->pA;	
-}
-*/
 
 void qcu_cudaHostGetDevicePointer(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 {
@@ -1020,9 +1054,7 @@ void qcu_cudaHostUnregister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 
 void qcu_cudaSetDeviceFlags(VirtioQCArg *arg)
 {
-	ptrace("cocotion qcu_cudaSetDeviceFlags start ok\n");
 	qcu_misc_send_cmd(arg);
-	ptrace("cocotion qcu_cudaSetDeviceFlags end ok\n");
 }
 
 void qcu_cudaFreeHost(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
@@ -1109,8 +1141,16 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 			qcu_cudaRegisterFunction(arg);
 			break;
 
+		case VIRTQC_cudaRegisterVar:	
+			qcu_cudaRegisterVar(arg);
+			break;
+
 		case VIRTQC_cudaLaunch:
 			qcu_cudaLaunch(arg);
+			break;
+
+		case VIRTQC_cudaFuncGetAttributes:
+			qcu_cudaFuncGetAttributes(arg);
 			break;
 
 		// Memory Management (runtime API)
@@ -1147,6 +1187,10 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 			qcu_cudaSetDevice(arg);
 			break;
 
+		case VIRTQC_cudaDeviceSetCacheConfig:
+			qcu_cudaDeviceSetCacheConfig(arg);
+			break;
+
 		case VIRTQC_cudaGetDeviceProperties:
 			qcu_cudaGetDeviceProperties(arg);
 			break;
@@ -1158,6 +1202,14 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 		case VIRTQC_cudaDeviceReset:
 			qcu_cudaDeviceReset(arg);
 			break;
+
+		case VIRTQC_cudaDeviceSetLimit:
+			qcu_cudaDeviceSetLimit(arg);
+			break;			
+
+		case VIRTQC_cudaDeviceGetAttribute:
+			qcu_cudaDeviceGetAttribute(arg);
+			break;			
 
 		//case VIRTQC_checkCudaCapabilities:
 		//	qcu_checkCudaCapabilities(arg);
@@ -1185,6 +1237,10 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 			qcu_cudaEventRecord(arg);
 			break;
 
+		case VIRTQC_cudaStreamWaitEvent:
+			qcu_cudaStreamWaitEvent(arg);
+			break;
+
 		case VIRTQC_cudaEventSynchronize:
 			qcu_cudaEventSynchronize(arg);
 			break;
@@ -1200,6 +1256,10 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 		// Error Handling (runtime API)
 		case VIRTQC_cudaGetLastError:
 			qcu_cudaGetLastError(arg);
+			break;
+
+		case VIRTQC_cudaPeekAtLastError:
+			qcu_cudaPeekAtLastError(arg);
 			break;
 
 		//Zero-copy
@@ -1244,7 +1304,6 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 
 		default:
 			error("unknow cmd= %d\n", arg->cmd);
-			break;
 	}
 
 	copy_to_user_safe((void*)_arg, arg, sizeof(VirtioQCArg));
