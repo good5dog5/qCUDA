@@ -19,6 +19,16 @@ void dump(float * result)
         printf("%f ", result[i]);
     printf("\n");
 }
+
+void valid(float *result)
+{
+    for(int i=0; i<N; i++)
+        if (result[i] != 20.0) {
+            printf("Failed\n");
+            return;
+        }
+    printf("cudaRegisterFunction PASSED\n");
+}
 int main(void)
 {
     float *x, *y;
@@ -43,7 +53,8 @@ int main(void)
 
     cudaMemcpy(x, x_gpu, N * sizeof(float), cudaMemcpyDeviceToHost);
     cudaMemcpy(y, y_gpu, N * sizeof(float), cudaMemcpyDeviceToHost);
-    dump(y);
+    /* dump(y); */
+    valid(y);
 
     free(x);
     free(y);

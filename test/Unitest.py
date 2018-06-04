@@ -9,8 +9,10 @@ import re
 from config import expected_results
 from subprocess import Popen, PIPE
 
+# EXE_PATH='exe'
+
 def execute_cuda_program(prg_name, *args):
-    CMD = ['./' + prg_name] + list(args)
+    CMD = ['./exe/' + prg_name] + list(args)
     p = Popen(CMD, shell=True, stdout=PIPE, stderr=PIPE, stdin=PIPE)
     stdout, stderr = p.communicate()
 
@@ -26,6 +28,11 @@ def isPass(prg_name, prg_stdout):
 
 class qCUDATest(unittest.TestCase):
 
+    def setup(self):
+        os.chdir('exe')
+        print(os.abspath('.'))
+
+
     def test_vectorAdd(self):
         sout, serr = execute_cuda_program('vectorAdd')
         self.assertTrue(isPass('vectorAdd', sout))
@@ -34,9 +41,21 @@ class qCUDATest(unittest.TestCase):
         sout, serr = execute_cuda_program('matrixMul')
         self.assertTrue(isPass('matrixMul', sout))
 
+    def test_clock(self):
+        sout, serr = execute_cuda_program('clock')
+        self.assertTrue(isPass('clock', sout))
+
+    def test_cdpSimpleQuicksort(self):
+        sout, serr = execute_cuda_program('cdpSimpleQuicksort')
+        self.assertTrue(isPass('cdpSimpleQuicksort', sout))
+
     def test_cudaGetDeviceCount(self):
         sout, serr = execute_cuda_program('cudaGetDeviceCount')
         self.assertTrue(isPass('cudaGetDeviceCount', sout))
+
+    def test_cudaRegisterFunction(self):
+        sout, serr = execute_cuda_program('cudaRegisterFunction')
+        self.assertTrue(isPass('cudaRegisterFunction', sout))
 
 
 
