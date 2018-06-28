@@ -24,14 +24,13 @@
 #include "qcuda_common.h"
 
 #if 1
-#define pfunc() printk("### %s : %d\n", __func__, __LINE__)
+#define pfunc() printk("[pfunc] %s : %d\n", __func__, __LINE__)
 #else
 #define pfunc()
 #endif
 
 #if 1
-#define ptrace(fmt, arg...) \
-	printk("    ### " fmt, ##arg, __LINE__)
+#define ptrace(fmt, ...)  printk("[ptrace] [%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__);
 #else
 #define ptrace(fmt, arg...)
 #endif
@@ -57,6 +56,7 @@ struct virtio_qcuda *qcu;
 //could be a structure let different processes open the same file
 typedef int virtio_qc_file; 
 
+// 
 struct virtio_qc_page{
 	unsigned int 			numOfblocks;
 	unsigned long 			uvm_start;
@@ -250,41 +250,54 @@ static void kfree_gpa(uint64_t pa, uint32_t size)
 // if the function is corrent, it return 0. otherwise, is -1
 static int qcu_misc_send_cmd(VirtioQCArg *req)
 {
+    ptrace("req->pA is %x %p\n", req->pA, req->pA);
+    pfunc();
 	struct scatterlist *sgs[2], req_sg, res_sg;
 	unsigned int len;
 	int err;
 	VirtioQCArg *res;
 
+    ptrace("req->pA is %x %p\n", req->pA, req->pA);
 	res = kmalloc_safe(sizeof(VirtioQCArg));
 	memcpy(res, req, sizeof(VirtioQCArg));
 
+    pfunc();
 	sg_init_one(&req_sg, req, sizeof(VirtioQCArg));
 	sg_init_one(&res_sg, res, sizeof(VirtioQCArg));
 
 	sgs[0] = &req_sg;
 	sgs[1] = &res_sg;
 
+    ptrace("req->pA is %x %p\n", req->pA, req->pA);
+    pfunc();
 	spin_lock(&qcu->lock);
 
 	err =  virtqueue_add_sgs(qcu->vq, sgs, 1, 1, req, GFP_ATOMIC);
+    ptrace("############# err is %d\n", err);
 	if( err ){
+        ptrace("#################### error happened\n");
 		virtqueue_kick(qcu->vq);
 		error("virtqueue_add_sgs failed\n");
 		goto out;
 	}
 
 	if(unlikely(!virtqueue_kick(qcu->vq))){
+        ptrace("####################!virtqueue_kick(qcu->vq) error happened\n");
 		error("unlikely happen\n");
 		goto out;
 	}
 
+    pfunc();
 	// TODO: do not use busy waiting
 	while (!virtqueue_get_buf(qcu->vq, &len) &&	!virtqueue_is_broken(qcu->vq))
 		cpu_relax();
+    pfunc();
+    ptrace("req->pA is %d %x %p\n",req->pA, req->pA, req->pA);
 
 out:
 	spin_unlock(&qcu->lock);
 
+    pfunc();
 	memcpy(req, res, sizeof(VirtioQCArg));
 	kfree(res);
 
@@ -424,7 +437,10 @@ static uint64_t get_gpa_array_start_phys(uint64_t from, struct virtio_qc_mmap* p
 	uint32_t rsize, len;
 
 	group 		 = find_page_group(from, priv);
-	if(group==NULL) return (uint64_t)-1;
+	if(group==NULL) {
+        ptrace("group is null\n");
+        return (uint64_t)-1;
+    }
 
  
 	*offset 	 = from - group->uvm_start;
@@ -452,6 +468,9 @@ static uint64_t get_gpa_array_start_phys(uint64_t from, struct virtio_qc_mmap* p
 
 static void free_gpa_array(uint64_t pa)
 {
+
+    ptrace("pa orig addr is %p %p\n", pa, (phys_addr_t)pa);
+    ptrace("pa addr is %p\n", phys_to_virt((phys_addr_t)pa));
 	kfree(phys_to_virt((phys_addr_t)pa));	
 }
 
@@ -615,49 +634,6 @@ void qcu_cudaMemcpyAsync(VirtioQCArg *arg, void *dev)
 
 }
 
-/*
-void qcu_cudaMemcpyAsync(VirtioQCArg *arg, void *dev)
-{
-
-	struct virtio_qc_mmap *priv; //cocotion
-	struct virtio_qc_page *group;
-	priv = dev;
-
-	if( arg->flag == 1 ) // cudaMemcpyHostToDevice
-	{
-			//TODO: if not find
-		group = find_page_group(arg->pB, priv);
-		priv->group = group;
-
-		arg->para = priv->block_size*priv->group->numOfblocks;	
-
-		arg->pB = arg->pB - group->uvm_start; //offset 
-		arg->pASize = group->file; //fd
-		
-		qcu_misc_send_cmd(arg);
-	}
-	else if( arg->flag == 2 ) // cudaMemcpyDeviceToHost
-	{
-			//TODO: if not find
-		group = find_page_group(arg->pA, priv);
-		priv->group = group;
-
-		arg->para = priv->block_size*priv->group->numOfblocks;	
-
-		arg->pA = arg->pA - group->uvm_start; //offset 
-		arg->pBSize = group->file; //fd
-	
-		qcu_misc_send_cmd(arg);
-	}
-	else if(arg->flag == 3 ) // cudaMemcpyDeviceToDevice
-	{
-		//arg->pA is device pointer
-		//arg->pB is device pointer
-		qcu_misc_send_cmd(arg);
-	
-	}
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ///	Device Management
@@ -940,12 +916,18 @@ static int mmapctl(struct virtio_qc_mmap *priv)
 		
 	arg->pB = priv->group->uvm_start;
 
+    ptrace("################################## arg->pA before qcu_misc_send_cmd :%d \n", arg->pA );
 	qcu_misc_send_cmd(arg);
 	
+    ptrace("################################## arg->pA after qcu_misc_send_cmd :%d \n", arg->pA );
 	priv->group->file = arg->pA;
+    ptrace("group->file:%d \n", priv->group->file);
+    
 
-	if((int)(arg->pA) == -1)
+	if((int)(arg->pA) == -1) {
+        ptrace("arg->pA is -1\n");
 		goto err_open;
+    }
 
 	kfree(arg);
 	
@@ -974,7 +956,50 @@ static void qcummap(struct virtio_qc_mmap *priv)
 }
 
 /////////zero-copy/////////
+void qcu_cudaHostAlloc(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
+{
+	uint64_t gasp;
+	struct virtio_qc_page *group;	
+	
+	gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize));
+    ptrace("gasp is %x %p\n", gasp, gasp);
 
+
+	//fix for cudaHostGetDevicePointer start
+	//TODO: if not find
+	group = find_page_group(arg->pA, priv);
+	priv->group = group;
+    ptrace("group->file:%d \n", group->file);
+    ptrace("priv addr:%x priv->group addr:%x\n", priv, priv->group);
+    pfunc();
+
+	arg->pB = priv->block_size*priv->group->numOfblocks;
+    ptrace("blocksize: %d, numofblocks:%d\n",priv->block_size, priv->group->numOfblocks);
+    /* pfunc(); */
+	
+	//TODO: error handling	
+	mmapctl(priv);
+	qcummap(priv);
+    pfunc();
+
+	arg->rnd = arg->pA - group->uvm_start; //offset 
+	arg->pBSize = group->file; //fd
+    pfunc();
+	//fix for cudaHostGetDevicePointer end
+ 
+	arg->pA = gasp;
+    ptrace("gasp is %x %p\n", gasp, gasp);
+    ptrace("arg->pA is %x %p\n", arg->pA, arg->pA);
+    pfunc();
+	qcu_misc_send_cmd(arg);
+    pfunc();
+    ptrace("arg->pA is %x %p\n", arg->pA, arg->pA);
+    ptrace("arg->pA is %x %p\n", (phys_addr_t)arg->pA, (phys_addr_t)arg->pA);
+	free_gpa_array(arg->pA);
+    pfunc();
+
+	group->data = arg->rnd; //fix for cudaHostGetDevicePointer
+}
 void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 {
 	uint64_t gasp;
@@ -1267,6 +1292,8 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 			qcu_cudaHostRegister(arg, filp->private_data);
 			break;
 
+        case VIRTQC_cudaHostAlloc:
+            qcu_cudaHostAlloc(arg, filp->private_data);
 		case VIRTQC_cudaHostGetDevicePointer:
 			qcu_cudaHostGetDevicePointer(arg, filp->private_data);
 			break;
@@ -1375,31 +1402,6 @@ static int qcu_misc_release(struct inode *inode, struct file *filp)
 
 static void virtqc_device_mmap(struct vm_area_struct *vma)
 {
-/*
-	struct virtio_qc_mmap *priv = vma->vm_private_data;
-	VirtioQCArg *arg;
-	int i;
-
-	ptrace("mmap start\n");
-	
-	arg = kmalloc_safe(sizeof(VirtioQCArg));
-	
-	arg->cmd = VIRTQC_CMD_MMAP;
-	ptrace("mmap command = %d\n", arg->cmd);
-	
-	arg->pASize	= priv->block_size;		
-	arg->pA		= priv->group->file;
-
-	for(i = 0; i < priv->group->numOfblocks; i++)
-	{
-		arg->pB = __pa((priv->group->page)[i]);
-		
-		arg->pBSize = i*priv->block_size; //offset
-		qcu_misc_send_cmd(arg); //cocotion test, next step test this unmark
-	}
-	
-	kfree(arg);
-*/	
 	ptrace("mmap ok\n");
 
 }
@@ -1535,14 +1537,12 @@ static struct miscdevice qcu_misc_driver = {
 
 static void qcu_virtio_cmd_vq_cb(struct virtqueue *vq)
 {
-	/*
-	   VirtioQCArg *cmd;
-	   unsigned int len;
-
-	   while( (cmd = virtqueue_get_buf(vq, &len))!=NULL ){	
-	   ptrace("read cmd= %d , rnd= %d\n", cmd->cmd, cmd->rnd);
-	   }
-	 */
+	   /* VirtioQCArg *cmd; */
+	   /* unsigned int len; */
+       /*  */
+	   /* while( (cmd = virtqueue_get_buf(vq, &len))!=NULL ){	 */
+	   /* ptrace("read cmd= %d , rnd= %d\n", cmd->cmd, cmd->rnd); */
+	   /* } */
 }
 /*
    static int qcu_virtio_init_vqs()
@@ -1586,6 +1586,7 @@ static int qcu_virtio_probe(struct virtio_device *vdev)
 
 	qcu->vq = virtio_find_single_vq(vdev, qcu_virtio_cmd_vq_cb, 
 			"request_handle");
+    ptrace("qcu-vq addr is %p, sizeof() is %zu\n", qcu->vq, sizeof(qcu->vq));
 	if (IS_ERR(qcu->vq)) {
 		err = PTR_ERR(qcu->vq);
 		error("init vqs failed.\n");
@@ -1622,7 +1623,7 @@ static void qcu_virtio_remove(struct virtio_device *vdev)
 
 	qcu->vdev->config->reset(qcu->vdev);
 	qcu->vdev->config->del_vqs(qcu->vdev);
-	kfree(qcu->vq);
+	/* kfree(qcu->vq); */
 	kfree(qcu);
 }
 

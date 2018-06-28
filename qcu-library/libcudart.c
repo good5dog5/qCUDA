@@ -4,8 +4,8 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
-#include <fcntl.h> // open
-#include <unistd.h> // close
+#include <fcntl.h>     // open
+#include <unistd.h>    // close
 #include <sys/ioctl.h> // ioclt
 #include <sys/mman.h>
 
@@ -13,7 +13,7 @@
 #include <sys/syscall.h>
 
 #include <builtin_types.h>
-#include <__cudaFatFormat.h>
+/* #include <__cudaFatFormat.h> */
 #include <driver_types.h>
 #include <fatBinaryCtl.h>
 
@@ -34,14 +34,13 @@
 #endif
 
 #define dev_path "/dev/qcuda"
-
 #define error(fmt, arg...) printf("ERROR: "fmt, ##arg)
 
 #define doArgAssignmentWithCasting( arg , ptr, size) \
 	arg = (uint64_t)ptr;                             \
 	arg##Size = (uint32_t)size;
 
-int fd = -1;
+int qcu_fd = -1;
 uint64_t map_offset = 0;
 
 extern void *__libc_malloc(size_t);
@@ -61,42 +60,51 @@ uint32_t cudaParaSize;
 
 void open_device()
 {
-	fd = open(dev_path, O_RDWR);
-	if( fd < 0 )
+	qcu_fd = open(dev_path, O_RDWR);
+	if( qcu_fd < 0 )
 	{
 		error("open device %s faild, %s (%d)\n", dev_path, strerror(errno), errno);
 		exit (EXIT_FAILURE);
 	}
-	//printf("open is ok fd: %d\n", fd);
 }
 
 void close_device()
 {
-	close(fd);
+	close(qcu_fd);
 	time_fini();
 }
 
 void send_cmd_to_device(int cmd, VirtioQCArg *arg)
 {
-//	if(__builtin_expect(!!(fd==-1), 0))
+//	if(__builtin_expect(!!(qcu_fd==-1), 0))
 //		open_device();
 
-	ioctl(fd, cmd, arg);
+	ioctl(qcu_fd, cmd, arg);
 }
 
 void *__zcmalloc(uint64_t size)
 {
 	time_begin();
 
-	int blocksize = getpagesize()*1024; //test 4096k	
-	unsigned int numOfblocks = size/blocksize;
-	if(size%blocksize != 0) numOfblocks++;
+    void *addr, *ret;
+	int blocksize;
+	unsigned int numOfblocks;
 
-	void *addr = mmap(0, numOfblocks*blocksize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map_offset);
-	
+    blocksize   = getpagesize()*1024; //test 4096k	
+    numOfblocks = size/blocksize;
+	if(size % blocksize != 0) numOfblocks++;
+
+	ret = mmap(0, numOfblocks*blocksize, PROT_READ | PROT_WRITE, MAP_SHARED, qcu_fd, map_offset);
+
+    if (ret ==  MAP_FAILED) {
+        ptrace("[__zcmalloc] mmap failed\n");
+        return ret;
+    }
+
+    addr = ret;
 	msync(addr, numOfblocks*blocksize, MS_ASYNC);
-	
 	map_offset+=numOfblocks*blocksize;
+    ptrace("size is %lx, blocksize: %d, numofblocks:%d, addr=%p\n",size, blocksize, numOfblocks,  addr );
 
 /*
 	mmapRecord[alloc_head].ptr  = (uint64_t)addr;
@@ -104,7 +112,6 @@ void *__zcmalloc(uint64_t size)
 	alloc_head = (alloc_head+1)%100;
 */
 	time_end(t_myMalloc);
-	
 	return addr;
 }
 
@@ -162,10 +169,10 @@ void free(void* ptr)
 
 //void send_cmd_to_device(int cmd, VirtioQCArg *arg)
 //{
-//	if(__builtin_expect(!!(fd==-1), 0))
+//	if(__builtin_expect(!!(qcu_fd==-1), 0))
 //		open_device();
 
-//	ioctl(fd, cmd, arg);
+//	ioctl(qcu_fd, cmd, arg);
 //}
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1018,14 +1025,34 @@ cudaError_t cudaStreamSynchronize(cudaStream_t 	stream)
 #define MEMORY_ALIGNMENT  4096
 #define ALIGN_UP(x,size) ( ((size_t)x+(size-1))&(~(size-1)) )
 
+/* cudaError_t cudaHostAlloc(void **pHost, size_t size, unsigned int flags) */
+/* { */
+/* 	void *a_UA = __zcmalloc(size + MEMORY_ALIGNMENT); */
+/* 	*pHost = (void *) ALIGN_UP(a_UA, MEMORY_ALIGNMENT); */
+/*  */
+/* 	return cudaHostRegister(*pHost, size, flags); */
+/* } */
+
 cudaError_t cudaHostAlloc(void **pHost, size_t size, unsigned int flags)
 {
-	void *a_UA = __zcmalloc(size + MEMORY_ALIGNMENT);
-	*pHost = (void *) ALIGN_UP(a_UA, MEMORY_ALIGNMENT);
+	VirtioQCArg arg;
+	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	return cudaHostRegister(*pHost, size, flags);
+    /* ptrace("size + memory aligment is %lx", size+MEMORY_ALIGNMENT); */
+	/* void *pHostUnaligned = __zcmalloc(size + MEMORY_ALIGNMENT); */
+	/* *pHost = (void *) ALIGN_UP(pHostUnaligned, MEMORY_ALIGNMENT); */
+
+    ptrace("[qcu-library] pass align_up:%p\n", *pHost);
+	doArgAssignmentWithCasting( arg.pA, **pHost, size);
+	arg.flag = flags;
+    ptrace("[qcu-library] pass doArgAssignment\n");
+
+	send_cmd_to_device( VIRTQC_cudaHostAlloc, &arg);
+    ptrace("[qcu-library] pass send_cmd_to_device\n");
+    ptrace("Error num is %d\n", arg.cmd);
+	return (cudaError_t)arg.cmd;
+
 }
-
 cudaError_t cudaMallocHost(void **pHost, size_t size)
 {
 	return cudaHostAlloc(pHost, size, cudaHostAllocDefault);

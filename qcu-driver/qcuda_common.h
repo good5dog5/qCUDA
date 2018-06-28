@@ -76,6 +76,7 @@ enum
 
 	//zero-cpy
 	VIRTQC_cudaHostRegister,
+    VIRTQC_cudaHostAlloc,
 	VIRTQC_cudaHostGetDevicePointer,
 	VIRTQC_cudaHostUnregister,
 	VIRTQC_cudaSetDeviceFlags,
