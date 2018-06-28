@@ -1,7 +1,8 @@
-.qcuda.ko.cmd
-.qcuda.mod.o.cmd
-.qcuda_driver.o.cmd
+.tmp_versions/qcuda.mod
+.qcuda*
 Module.symvers
 modules.order
 qcuda.mod.c
 *.png
+/html/*
+/latex/*
