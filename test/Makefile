@@ -11,11 +11,14 @@ NVCCFLAGS     := -m64  --cudart=shared $(ARCH)
 
 EXE = cudaGetDeviceCount \
 	cudaHostAlloc \
+	cudaHostAlloc_internal \
+	cudaPointerTest \
 	cudaHostRegister \
 	vectorAdd \
 	matrixMul \
 	cdpSimpleQuicksort \
 	clock 
+
 
 EXES := $(addprefix exe/, $(EXE))
 	
@@ -26,6 +29,12 @@ cudaGetDeviceCount: src/test_cudaGetDeviceCount.cu
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
 cudaHostAlloc: src/test_cudaHostAlloc.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
+
+cudaHostAlloc_internal: src/test_cudaHostAlloc_internal.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
+
+cudaPointerTest: src/test_cudaPointerTest.cu
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
 malloc: src/malloc.cu

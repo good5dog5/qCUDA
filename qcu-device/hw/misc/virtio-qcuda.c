@@ -52,11 +52,29 @@ static void* gpa_to_hva(uint64_t pa)
 {
 	MemoryRegionSection section;
 
+    pfunc();
 	section = memory_region_find(get_system_memory(), (ram_addr_t)pa, 1);
+
+    pfunc();
+
+    if (!int128_nz(section.size)) {
+        error("trigger int128_nz\n");
+    }
+    pfunc();
+    if(!section.mr) {
+        error("section.mr is null pointer\n");
+    }
+    if (!memory_region_is_ram(section.mr)) {
+        error("trigger memory_region_is_ram\n");
+    }
+
+
+    pfunc();
 	if ( !int128_nz(section.size) || !memory_region_is_ram(section.mr)){
 		error("addr %p in rom\n", (void*)pa); 
 		return 0;
 	}
+    pfunc();
 
 	return (memory_region_get_ram_ptr(section.mr) + section.offset_within_region);
 }
@@ -989,39 +1007,62 @@ static void qcu_cudaPeekAtLastError(VirtioQCArg *arg)
 
 //////////zero-copy////////
 
+static void qcu_cudaHostAlloc(VirtioQCArg *arg)
+{
+    int *ptr;
+    ptr = gpa_to_hva(arg->pA);
+    /* ptr = 0x0; */
+    ptrace("@@ ptr value  is %d\n", *ptr);
+
+    int new = 100;
+    /* ptr = &new; */
+    *ptr = 100;
+    /* *ptr = 10; */
+
+
+}
+
 static void qcu_cudaHostRegister(VirtioQCArg *arg)
 {
-	int size, i;
-	cudaError_t err = 0;
-	void *ptr;
-	uint64_t *gpa_array;
-	size = arg->pASize;
-	gpa_array = gpa_to_hva(arg->pA);
-	
-	for(i = 0; size>0; i++)
-	{
-    	ptr = gpa_to_hva(gpa_array[i]);
-		err = cudaHostRegister(ptr, MIN(BLOCK_SIZE,size), arg->flag);
-        ptrace("ptr: %x, size: %d, flag: %d", ptr, MIN(BLOCK_SIZE,size), arg->flag); 
-        ptrace("error is: %d\n", err);
-		size-=BLOCK_SIZE;	
-	}
-	arg->cmd = err;
+    int *guestPtr;
+    guestPtr = gpa_to_hva(arg->pA);
+    ptrace("@@ guestPtr value  is %d\n", *guestPtr);
 
-	//fix for cudaHostGetDevicePointer start
-
-	int fd = ldl_p(&arg->pBSize);
-	uint64_t offset = arg->rnd;	
-	size = arg->pASize;
-	
-	ptr = mmap(0, arg->pB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
- 	
-	err = cudaHostRegister(ptr, size, arg->flag);
-	arg->rnd = (uint64_t)ptr;
-	arg->cmd = err;
-
-	//fix for cudaHostGetDevicePointer end
+    *guestPtr = 10;
 }
+/* static void qcu_cudaHostRegister(VirtioQCArg *arg) */
+/* { */
+/* 	int size, i; */
+/* 	cudaError_t err = 0; */
+/* 	void *ptr; */
+/* 	uint64_t *gpa_array; */
+/* 	size = arg->pASize; */
+/* 	gpa_array = gpa_to_hva(arg->pA); */
+/* 	 */
+/* 	for(i = 0; size>0; i++) */
+/* 	{ */
+/*     	ptr = gpa_to_hva(gpa_array[i]); */
+/* 		err = cudaHostRegister(ptr, MIN(BLOCK_SIZE,size), arg->flag); */
+/*         ptrace("ptr: %x, size: %d, flag: %d", ptr, MIN(BLOCK_SIZE,size), arg->flag);  */
+/*         ptrace("error is: %d\n", err); */
+/* 		size-=BLOCK_SIZE;	 */
+/* 	} */
+/* 	arg->cmd = err; */
+/*  */
+/* 	//fix for cudaHostGetDevicePointer start */
+/*  */
+/* 	int fd = ldl_p(&arg->pBSize); */
+/* 	uint64_t offset = arg->rnd;	 */
+/* 	size = arg->pASize; */
+/* 	 */
+/* 	ptr = mmap(0, arg->pB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset); */
+/*  	 */
+/* 	err = cudaHostRegister(ptr, size, arg->flag); */
+/* 	arg->rnd = (uint64_t)ptr; */
+/* 	arg->cmd = err; */
+/*  */
+/* 	//fix for cudaHostGetDevicePointer end */
+/* } */
 
 static void qcu_cudaHostGetDevicePointer(VirtioQCArg *arg)
 {
@@ -1206,7 +1247,7 @@ static int qcu_cmd_read(VirtioQCArg *arg)
 
 	return 0;
 }
-
+// arg->pB: uvm_start address
 static int qcu_cmd_mmapctl(VirtioQCArg *arg)
 {
 
@@ -1218,7 +1259,7 @@ static int qcu_cmd_mmapctl(VirtioQCArg *arg)
 	int fd=open(vfname, O_CREAT|O_RDWR,0666);
     if(fd<0)
     {   
-        printf("failure to open\n");
+        printf("failure to open %s\n", vfname);
         exit(0);
     } 
 	if(lseek(fd,arg->pBSize,SEEK_SET)==-1) 
@@ -1232,7 +1273,9 @@ static int qcu_cmd_mmapctl(VirtioQCArg *arg)
         exit(0);
     }   
 	
+    // stl_p(ptr, value)
 	stl_p(&arg->pA, fd);
+    pfunc();
 	
 	return 0;
 }
@@ -1503,6 +1546,14 @@ static void virtio_qcuda_cmd_handle(VirtIODevice *vdev, VirtQueue *vq)
 				qcu_cudaHostRegister(arg);
 				break;
 		
+            /* case VIRTQC_cudaPointerTest: */
+            /*     qcu_cudaPointerTest(arg); */
+            /*     break; */
+
+            case VIRTQC_cudaHostAlloc:
+                qcu_cudaHostAlloc(arg);
+                break;
+
 			case VIRTQC_cudaHostGetDevicePointer:
 				qcu_cudaHostGetDevicePointer(arg);
 				break;
@@ -1559,43 +1610,6 @@ static uint64_t virtio_qcuda_get_features(VirtIODevice *vdev, uint64_t features,
 	return features;
 }
 
-/*
-   static void virtio_qcuda_device_unrealize(DeviceState *dev, Error **errp)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_get_config(VirtIODevice *vdev, uint8_t *config)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_set_config(VirtIODevice *vdev, const uint8_t *config)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_reset(VirtIODevice *vdev)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_save_device(VirtIODevice *vdev, QEMUFile *f)
-   {
-   ptrace("\n");
-   }
-
-   static int virtio_qcuda_load_device(VirtIODevice *vdev, QEMUFile *f, int version_id)
-   {
-   ptrace("\n");
-   return 0;
-   }
-
-   static void virtio_qcuda_set_status(VirtIODevice *vdev, uint8_t status)
-   {
-   ptrace("\n");
-   }
- */
 
 /*
    get the configure

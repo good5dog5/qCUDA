@@ -90,6 +90,7 @@ enum
 
 	// Thread Management
 	VIRTQC_cudaThreadSynchronize,
+    VIRTQC_cudaPointerTest,
 };
 
 typedef struct VirtioQCArg   VirtioQCArg;

@@ -958,80 +958,106 @@ static void qcummap(struct virtio_qc_mmap *priv)
 /////////zero-copy/////////
 void qcu_cudaHostAlloc(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 {
-	uint64_t gasp;
-	struct virtio_qc_page *group;	
-	
-	gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize));
-    ptrace("gasp is %x %p\n", gasp, gasp);
+    void *ptr;
+    ptrace("@@ pHost address is %p\n", (void*)arg->pA);
+    ptrace("@@ in\n");
 
+    ptr = (void*)arg->pA;
+    arg->pA = user_to_gpa(arg->pA, arg->pASize);
+    ptrace("@@ in\n");
+    ptrace("@@ pHost address is %p\n", (void*)arg->pA);
 
-	//fix for cudaHostGetDevicePointer start
-	//TODO: if not find
-	group = find_page_group(arg->pA, priv);
-	priv->group = group;
-    ptrace("group->file:%d \n", group->file);
-    ptrace("priv addr:%x priv->group addr:%x\n", priv, priv->group);
-    pfunc();
-
-	arg->pB = priv->block_size*priv->group->numOfblocks;
-    ptrace("blocksize: %d, numofblocks:%d\n",priv->block_size, priv->group->numOfblocks);
-    /* pfunc(); */
-	
-	//TODO: error handling	
-	mmapctl(priv);
-	qcummap(priv);
-    pfunc();
-
-	arg->rnd = arg->pA - group->uvm_start; //offset 
-	arg->pBSize = group->file; //fd
-    pfunc();
-	//fix for cudaHostGetDevicePointer end
- 
-	arg->pA = gasp;
-    ptrace("gasp is %x %p\n", gasp, gasp);
-    ptrace("arg->pA is %x %p\n", arg->pA, arg->pA);
-    pfunc();
 	qcu_misc_send_cmd(arg);
-    pfunc();
-    ptrace("arg->pA is %x %p\n", arg->pA, arg->pA);
-    ptrace("arg->pA is %x %p\n", (phys_addr_t)arg->pA, (phys_addr_t)arg->pA);
-	free_gpa_array(arg->pA);
-    pfunc();
 
-	group->data = arg->rnd; //fix for cudaHostGetDevicePointer
+    gpa_to_user(ptr, arg->pA, arg->pASize);
+    /* ptrace("@@ pHost value is %d\n", *((int*)(arg->pA))); */
+    ptrace("@@ pHost value is %d\n", *((int*)(ptr)));
+	/* kfree_gpa(arg->pA, arg->pASize); */
+
+	/* uint64_t gasp; */
+	/* struct virtio_qc_page *group;	 */
+	/*  */
+	/* gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize)); */
+    /* ptrace("gasp is %x %p\n", gasp, gasp); */
+    /*  */
+    /*  */
+	/* //fix for cudaHostGetDevicePointer start */
+	/* //TODO: if not find */
+	/* group = find_page_group(arg->pA, priv); */
+	/* priv->group = group; */
+    /* ptrace("group->file:%d \n", group->file); */
+    /* ptrace("priv addr:%x priv->group addr:%x\n", priv, priv->group); */
+    /* pfunc(); */
+    /*  */
+	/* arg->pB = priv->block_size*priv->group->numOfblocks; */
+    /* ptrace("blocksize: %d, numofblocks:%d\n",priv->block_size, priv->group->numOfblocks); */
+    /* #<{(| pfunc(); |)}># */
+	/*  */
+	/* //TODO: error handling	 */
+	/* mmapctl(priv); */
+	/* qcummap(priv); */
+    /* pfunc(); */
+    /*  */
+	/* arg->rnd = arg->pA - group->uvm_start; //offset  */
+	/* arg->pBSize = group->file; //fd */
+    /* pfunc(); */
+	/* //fix for cudaHostGetDevicePointer end */
+    /*  */
+	/* arg->pA = gasp; */
+    /* ptrace("gasp is %x %p\n", gasp, gasp); */
+    /* ptrace("arg->pA is %x %p\n", arg->pA, arg->pA); */
+    /* pfunc(); */
+	/* qcu_misc_send_cmd(arg); */
+    /* pfunc(); */
+    /* ptrace("arg->pA is %x %p\n", arg->pA, arg->pA); */
+    /* ptrace("arg->pA is %x %p\n", (phys_addr_t)arg->pA, (phys_addr_t)arg->pA); */
+	/* free_gpa_array(arg->pA); */
+    /* pfunc(); */
+    /*  */
+	/* group->data = arg->rnd; //fix for cudaHostGetDevicePointer */
 }
+
 void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 {
-	uint64_t gasp;
-	
-	gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize));
-
-
-	//fix for cudaHostGetDevicePointer start
-	struct virtio_qc_page *group;	
-	//TODO: if not find
-	group = find_page_group(arg->pA, priv);
-	priv->group = group;
-    pfunc();
-
-	arg->pB = priv->block_size*priv->group->numOfblocks;
-    pfunc();
-	
-	//TODO: error handling	
-	mmapctl(priv);
-	qcummap(priv);
-
-	arg->rnd = arg->pA - group->uvm_start; //offset 
-	arg->pBSize = group->file; //fd
-	//fix for cudaHostGetDevicePointer end
- 
-	arg->pA = gasp;
+    ptrace("@@ pHost address is %p\n", (void*)arg->pA);
+    ptrace("@@ in\n");
+    arg->pA = user_to_gpa(arg->pA, arg->pASize);
+    ptrace("@@ in\n");
+    ptrace("@@ pHost address is %p\n", (void*)arg->pA);
 	qcu_misc_send_cmd(arg);
-	free_gpa_array(arg->pA);
-    pfunc();
-
-	group->data = arg->rnd; //fix for cudaHostGetDevicePointer
 }
+/* void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv) */
+/* { */
+/* 	uint64_t gasp; */
+/* 	 */
+/* 	gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize)); */
+/*  */
+/*  */
+/* 	//fix for cudaHostGetDevicePointer start */
+/* 	struct virtio_qc_page *group;	 */
+/* 	//TODO: if not find */
+/* 	group = find_page_group(arg->pA, priv); */
+/* 	priv->group = group; */
+/*     pfunc(); */
+/*  */
+/* 	arg->pB = priv->block_size*priv->group->numOfblocks; */
+/*     pfunc(); */
+/* 	 */
+/* 	//TODO: error handling	 */
+/* 	mmapctl(priv); */
+/* 	qcummap(priv); */
+/*  */
+/* 	arg->rnd = arg->pA - group->uvm_start; //offset  */
+/* 	arg->pBSize = group->file; //fd */
+/* 	//fix for cudaHostGetDevicePointer end */
+/*   */
+/* 	arg->pA = gasp; */
+/* 	qcu_misc_send_cmd(arg); */
+/* 	free_gpa_array(arg->pA); */
+/*     pfunc(); */
+/*  */
+/* 	group->data = arg->rnd; //fix for cudaHostGetDevicePointer */
+/* } */
 
 
 void qcu_cudaHostGetDevicePointer(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
@@ -1294,6 +1320,8 @@ static long qcu_misc_ioctl(struct file *filp, unsigned int _cmd, unsigned long _
 
         case VIRTQC_cudaHostAlloc:
             qcu_cudaHostAlloc(arg, filp->private_data);
+            break;
+
 		case VIRTQC_cudaHostGetDevicePointer:
 			qcu_cudaHostGetDevicePointer(arg, filp->private_data);
 			break;
