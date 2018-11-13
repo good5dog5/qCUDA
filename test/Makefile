@@ -1,62 +1,21 @@
-INCLUDE_PATH  := -I $(CUDA_HOME)/samples/common/inc/ \
-		 	 -I include/ \
-			 -I /usr/local/cuda/include/ \
-			 -I ./
+EXEC ?= @echo "[@]"
+INCLUDES  := -I../../../common/inc
+
+HOST_COMPILER ?= g++
+NVCC          := $(CUDA_HOME)/bin/nvcc -ccbin $(HOST_COMPILER)
+NVCCFLAGS     := -m64  --cudart=shared -arch=compute_30 -code=sm_30
+
+all: cudaGetDeviceCount cudaHostAlloc malloc cudaHostRegister
 
 
-CC            := g++ -std=c++11
-NVCC          := $(CUDA_HOME)/bin/nvcc  -ccbin $(CC) -m64   -gencode arch=compute_20,code=sm_21
-NVCCFLAGS     := -cudart=shared
-LDFLAGS       := 
+cudaGetDeviceCount: test_cudaGetDeviceCount.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
 
+cudaHostAlloc: test_cudaHostAlloc.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
 
-EXECUTABLEs=test_cudaGetDeviceCount\
-			test_cudaFuncGetAttributes
+malloc: malloc.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@
 
-SRCs=$(addsuffix .cu, $(EXECUTABLEs))
-OBJs=$(addsuffix  .o, $(EXECUTABLEs))
-# OBJs += main.o
-
-.PHONY: clean
-
-all: $(EXECUTABLEs)
-
-test_cudaGetDeviceCount: test_cudaGetDeviceCount.cu
-	$(NVCC)  $(NVCCFLAGS) -o $@ $<
-
-test_cudaFuncGetAttributes: test_cudaFuncGetAttributes.cu
-	$(NVCC)  $(NVCCFLAGS) -lcriterion -o $@ $<
-
-clean:
-	@rm  -f $(OBJs) $(EXECUTABLEs)
-
-
-run: cudaFuncGetAttributes
-	@./cudaFuncGetAttributes
-
-# %.o: %.cu 
-# 	$(NVCC)  $(NVCCFLAGS) $(INCLUDE_PATH)   -o $@ -c $<
-
-# %.o: %.c 
-# 	$(CC) -c -o $@ $(INCLUDE_PATH) $(LDFLAGS)   $<
-# test_cudaGetDeviceCount: test_cudaGetDeviceCount.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)  $< -o $@
-#
-# test_cudaHostAlloc: test_cudaHostAlloc.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)  $< -o $@
-#
-# test_cudaHostRegister: test_cudaHostRegister.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)   $< -o $@
-#
-# test_cudaFuncGetAttributes: test_cudaFuncGetAttributes.cu
-# 	$(NVCC) $(INCLUDE_PATH) $(NVCCFLAGS)   $< -o $@
-
-
-# EXECUTABLEs=test_cudaGetDeviceCount\
-# 			test_cudaHostAlloc\
-# 			test_cudaHostRegister\
-# 			test_cudaFuncGetAttributes
-#
-# SRCS := $(wildcard *.cu)
-# EXECUTABLEs := $(basename  $(SRCS))
-# OBJs := $(addsuffix  .o, $(EXECUTABLEs))
+cudaHostRegister: test_cudaHostRegister.cu
+	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o $@

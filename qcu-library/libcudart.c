@@ -4,8 +4,8 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
-#include <fcntl.h> // open
-#include <unistd.h> // close
+#include <fcntl.h>     // open
+#include <unistd.h>    // close
 #include <sys/ioctl.h> // ioclt
 #include <sys/mman.h>
 
@@ -13,7 +13,7 @@
 #include <sys/syscall.h>
 
 #include <builtin_types.h>
-#include <__cudaFatFormat.h>
+/* #include <__cudaFatFormat.h> */
 #include <driver_types.h>
 #include <fatBinaryCtl.h>
 
@@ -21,27 +21,26 @@
 #include "../qcu-driver/qcuda_common.h"
 
 #if 1
-#define pfunc() printf("### %s at line %d\n", __func__, __LINE__)
+#define pfunc() printf("    @@ %s at line %d\n", __func__, __LINE__)
 #else
 #define pfunc()
 #endif
 
 #if 1
 #define ptrace(fmt, arg...) \
-	printf("    " fmt, ##arg)
+	printf("    @@" fmt, ##arg)
 #else
 #define ptrace(fmt, arg...)
 #endif
 
 #define dev_path "/dev/qcuda"
-
 #define error(fmt, arg...) printf("ERROR: "fmt, ##arg)
 
-#define ptr( p , v, s) \
-	p = (uint64_t)v; \
-	p##Size = (uint32_t)s;
+#define doArgAssignmentWithCasting( arg , ptr, size) \
+	arg = (uint64_t)ptr;                             \
+	arg##Size = (uint32_t)size;
 
-int fd = -1;
+int qcu_fd = -1;
 uint64_t map_offset = 0;
 
 extern void *__libc_malloc(size_t);
@@ -54,16 +53,6 @@ uint64_t cudaKernelConf[8];
 uint8_t cudaKernelPara[ cudaKernelParaMaxSize ];
 uint32_t cudaParaSize;
 
-/*
-struct mmap_record{
-	uint64_t ptr;
-	uint64_t size;
-};
-struct mmap_record mmapRecord[100];
-
-int alloc_head = 0;
-int free_head  = 0;
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 /// General Function
@@ -71,42 +60,48 @@ int free_head  = 0;
 
 void open_device()
 {
-	fd = open(dev_path, O_RDWR);
-	if( fd < 0 )
+	qcu_fd = open(dev_path, O_RDWR);
+	if( qcu_fd < 0 )
 	{
 		error("open device %s faild, %s (%d)\n", dev_path, strerror(errno), errno);
 		exit (EXIT_FAILURE);
 	}
-	//printf("open is ok fd: %d\n", fd);
 }
 
 void close_device()
 {
-	close(fd);
+	close(qcu_fd);
 	time_fini();
 }
 
 void send_cmd_to_device(int cmd, VirtioQCArg *arg)
 {
-//	if(__builtin_expect(!!(fd==-1), 0))
-//		open_device();
-
-	ioctl(fd, cmd, arg);
+	ioctl(qcu_fd, cmd, arg);
 }
 
 void *__zcmalloc(uint64_t size)
 {
 	time_begin();
 
-	int blocksize = getpagesize()*1024; //test 4096k	
-	unsigned int numOfblocks = size/blocksize;
-	if(size%blocksize != 0) numOfblocks++;
+    void *addr, *ret;
+	int blocksize;
+	unsigned int numOfblocks;
 
-	void *addr = mmap(0, numOfblocks*blocksize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, map_offset);
-	
+    blocksize   = getpagesize()*1024; //test 4096k	
+    numOfblocks = size/blocksize;
+	if(size % blocksize != 0) numOfblocks++;
+
+	ret = mmap(0, numOfblocks*blocksize, PROT_READ | PROT_WRITE, MAP_SHARED, qcu_fd, map_offset);
+
+    if (ret ==  MAP_FAILED) {
+        ptrace("[__zcmalloc] mmap failed\n");
+        return ret;
+    }
+
+    addr = ret;
 	msync(addr, numOfblocks*blocksize, MS_ASYNC);
-	
 	map_offset+=numOfblocks*blocksize;
+    ptrace("size is %ld, blocksize: %d, numofblocks:%d, addr=%p\n",size, blocksize, numOfblocks,  addr );
 
 /*
 	mmapRecord[alloc_head].ptr  = (uint64_t)addr;
@@ -114,7 +109,6 @@ void *__zcmalloc(uint64_t size)
 	alloc_head = (alloc_head+1)%100;
 */
 	time_end(t_myMalloc);
-	
 	return addr;
 }
 
@@ -123,7 +117,7 @@ void *malloc(uint64_t size)
 #ifdef USER_KERNEL_COPY     
     return __libc_malloc(size);
 #else
-    if( size > QCU_KMALLOC_MAX_SIZE)
+    if( size > QCU_KMALLOC_MAX_SIZE) //4MB
         return __zcmalloc(size);
     else                                                                                                                                                                                            
         return __libc_malloc(size);
@@ -133,7 +127,7 @@ void *malloc(uint64_t size)
 void free(void* ptr)
 {
 	VirtioQCArg arg;
-	ptr(arg.pA, ptr, 0);
+	doArgAssignmentWithCasting(arg.pA, ptr, 0);
 	send_cmd_to_device(VIRTQC_CMD_MMAPRELEASE, &arg);
 /*
 	int i;
@@ -170,13 +164,6 @@ void free(void* ptr)
 }
 
 
-//void send_cmd_to_device(int cmd, VirtioQCArg *arg)
-//{
-//	if(__builtin_expect(!!(fd==-1), 0))
-//		open_device();
-
-//	ioctl(fd, cmd, arg);
-//}
 
 ////////////////////////////////////////////////////////////////////////////////
 /// Module & Execution control
@@ -244,7 +231,9 @@ void __cudaUnregisterFatBinary(void **fatCubinHandle)
 	ptrace("fatCubinHandle= %p, value= %p\n", fatCubinHandle, *fatCubinHandle);
 	send_cmd_to_device( VIRTQC_cudaUnregisterFatBinary, NULL);
 
+	pfunc();
 	free(fatCubinHandle);
+	pfunc();
 	time_end(t_UnregFatbin);
 	close_device();
 }
@@ -291,8 +280,8 @@ void __cudaRegisterFunction(
 	memset(&arg, 0, sizeof(VirtioQCArg));
 	fatBinHeader = (computeFatBinaryFormat_t)(*fatCubinHandle);
 
-	ptr( arg.pA , fatBinHeader, fatBinHeader->fatSize);
-	ptr( arg.pB , deviceName  , strlen(deviceName)+1 );
+	doArgAssignmentWithCasting( arg.pA , fatBinHeader, fatBinHeader->fatSize);
+	doArgAssignmentWithCasting( arg.pB , deviceName  , strlen(deviceName)+1 );
 	arg.flag = (uint32_t)(uint64_t)hostFun;
 
 		ptrace("pA= %p, pASize= %u, pB= %p, pBSize= %u\n", 
@@ -397,9 +386,9 @@ cudaError_t cudaLaunch(const void *func)
 	time_begin();
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
-//	ptr( arg.pA, cudaKernelConf, 7*sizeof(uint32_t));
-	ptr( arg.pA, cudaKernelConf, 8*sizeof(uint64_t));
-	ptr( arg.pB, cudaKernelPara, cudaParaSize);
+//	doArgAssignmentWithCasting( arg.pA, cudaKernelConf, 7*sizeof(uint32_t));
+	doArgAssignmentWithCasting( arg.pA, cudaKernelConf, 8*sizeof(uint64_t));
+	doArgAssignmentWithCasting( arg.pB, cudaKernelPara, cudaParaSize);
 	arg.flag = (uint32_t)(uint64_t)func;
 
 	arg.rnd  = syscall(__NR_gettid);
@@ -408,6 +397,18 @@ cudaError_t cudaLaunch(const void *func)
 
 	time_end(t_Launch);
 	return cudaSuccess;
+}
+
+cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr, const void *func)
+{
+	VirtioQCArg arg;
+	memset(&arg, 0, sizeof(VirtioQCArg));
+
+	doArgAssignmentWithCasting( arg.pA, attr, sizeof(struct cudaFuncAttributes));
+	doArgAssignmentWithCasting( arg.pB, func, sizeof(func));	
+
+	send_cmd_to_device( VIRTQC_cudaFuncGetAttributes, &arg);
+	return (cudaError_t)arg.cmd;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -421,7 +422,7 @@ cudaError_t cudaMalloc(void** devPtr, size_t size)
 	time_begin();
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
-	ptr( arg.pA, 0,  0);
+	doArgAssignmentWithCasting( arg.pA, 0,  0);
 	arg.flag = size;
 
 	arg.rnd  = syscall(__NR_gettid); 
@@ -439,7 +440,7 @@ cudaError_t cudaMemset(void *devPtr, int value, size_t count)
 	VirtioQCArg arg;
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
-	ptr( arg.pA, devPtr, count);
+	doArgAssignmentWithCasting( arg.pA, devPtr, count);
 	arg.para = value;
 
 	arg.rnd  = syscall(__NR_gettid); 
@@ -456,7 +457,7 @@ cudaError_t cudaFree(void* devPtr)
 	time_begin();
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
-	ptr( arg.pA, devPtr, 0);
+	doArgAssignmentWithCasting( arg.pA, devPtr, 0);
 
 	arg.rnd  = syscall(__NR_gettid); 
 
@@ -483,20 +484,20 @@ cudaError_t cudaMemcpy(
 
 	if( kind == cudaMemcpyHostToDevice)
 	{
-		ptr( arg.pA, dst, 0);
-		ptr( arg.pB, src, count);
+		doArgAssignmentWithCasting( arg.pA, dst, 0);
+		doArgAssignmentWithCasting( arg.pB, src, count);
 		arg.flag   = 1;
 	}
 	else if( kind == cudaMemcpyDeviceToHost )
 	{
-		ptr( arg.pA, dst, count);
-		ptr( arg.pB, src, 0);
+		doArgAssignmentWithCasting( arg.pA, dst, count);
+		doArgAssignmentWithCasting( arg.pB, src, 0);
 		arg.flag   = 2;
 	}
 	else if( kind == cudaMemcpyDeviceToDevice )
 	{
-		ptr( arg.pA, dst, 0);
-		ptr( arg.pB, src, count);
+		doArgAssignmentWithCasting( arg.pA, dst, 0);
+		doArgAssignmentWithCasting( arg.pB, src, count);
 		arg.flag   = 3;
 	}
 	else
@@ -532,24 +533,24 @@ cudaError_t cudaMemcpyAsync(
 	
 	if( kind == cudaMemcpyHostToDevice)
 	{
-		ptr( arg.pA, dst, 0);
-		ptr( arg.pB, src, count);
+		doArgAssignmentWithCasting( arg.pA, dst, 0);
+		doArgAssignmentWithCasting( arg.pB, src, count);
 		//arg.rnd = (uint64_t)stream;
 		arg.rnd = mystream;
 		arg.flag   = 1;
 	}
 	else if( kind == cudaMemcpyDeviceToHost )
 	{
-		ptr( arg.pA, dst, count);
-		ptr( arg.pB, src, 0);
+		doArgAssignmentWithCasting( arg.pA, dst, count);
+		doArgAssignmentWithCasting( arg.pB, src, 0);
 		//arg.rnd = (uint64_t)stream;
 		arg.rnd = mystream;
 		arg.flag   = 2;
 	}
 	else if( kind == cudaMemcpyDeviceToDevice )
 	{
-		ptr( arg.pA, dst, 0);
-		ptr( arg.pB, src, count);
+		doArgAssignmentWithCasting( arg.pA, dst, 0);
+		doArgAssignmentWithCasting( arg.pB, src, count);
 		//arg.rnd = (uint64_t)stream;
 		arg.rnd = mystream;
 		arg.flag   = 3;
@@ -609,8 +610,8 @@ cudaError_t cudaGetDeviceCount(int *count)
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
 	
-	ptr( arg.pA, m, 0);
-	ptr( arg.pB, s, 0);
+	doArgAssignmentWithCasting( arg.pA, m, 0);
+	doArgAssignmentWithCasting( arg.pB, s, 0);
 
 	send_cmd_to_device( VIRTQC_checkCudaCapabilities, &arg);
 
@@ -625,7 +626,7 @@ cudaError_t cudaSetDevice(int device)
 	time_begin();
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, device, 0);
+	doArgAssignmentWithCasting( arg.pA, device, 0);
 	arg.rnd = syscall(__NR_gettid);
 
 	send_cmd_to_device( VIRTQC_cudaSetDevice, &arg);
@@ -633,6 +634,19 @@ cudaError_t cudaSetDevice(int device)
 	time_end(t_SetDev);
 	return (cudaError_t)arg.cmd;
 }
+
+
+cudaError_t cudaDeviceSetCacheConfig(enum cudaFuncCache cacheConfig)
+{
+	VirtioQCArg arg;
+	memset(&arg, 0, sizeof(VirtioQCArg));
+
+	doArgAssignmentWithCasting( arg.pA, cacheConfig, 0);
+
+	send_cmd_to_device( VIRTQC_cudaDeviceSetCacheConfig, &arg);
+	return (cudaError_t)arg.cmd;
+}
+
 
 cudaError_t cudaGetDeviceProperties(struct cudaDeviceProp *prop, int device)
 {
@@ -642,8 +656,8 @@ cudaError_t cudaGetDeviceProperties(struct cudaDeviceProp *prop, int device)
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, prop, sizeof(struct cudaDeviceProp));
-	ptr( arg.pB, device, 0);
+	doArgAssignmentWithCasting( arg.pA, prop, sizeof(struct cudaDeviceProp));
+	doArgAssignmentWithCasting( arg.pB, device, 0);
 	send_cmd_to_device( VIRTQC_cudaGetDeviceProperties, &arg);
 
 	time_end(t_GetDevProp);
@@ -688,13 +702,30 @@ cudaError_t cudaDeviceSetLimit	(enum cudaLimit limit, size_t value )
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, limit, 0);
-	ptr( arg.pB, value, 0);
+	doArgAssignmentWithCasting( arg.pA, limit, 0);
+	doArgAssignmentWithCasting( arg.pB, value, 0);
 
 	send_cmd_to_device( VIRTQC_cudaDeviceSetLimit, &arg);
 
 	return (cudaError_t)arg.cmd;
 }
+
+
+cudaError_t cudaDeviceGetAttribute(int * value, enum cudaDeviceAttr attr, int device)
+{
+	VirtioQCArg arg;
+	memset(&arg, 0, sizeof(VirtioQCArg));
+
+	//doArgAssignmentWithCasting( arg.pA, value, 0);
+	doArgAssignmentWithCasting( arg.pB, attr, device);
+
+    send_cmd_to_device(VIRTQC_cudaDeviceGetAttribute, &arg);
+    *value = (int)arg.pA;
+
+    return (cudaError_t)arg.cmd;
+
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -776,14 +807,33 @@ cudaError_t cudaEventRecord	(cudaEvent_t event,	cudaStream_t stream)
 
 	uint64_t mystream = (stream==NULL)?(uint64_t)-1:(uint64_t)stream;
 
-	ptr( arg.pA, event, 0);
-	//ptr( arg.pB, stream, 0);
-	ptr( arg.pB, mystream, 0);
+	doArgAssignmentWithCasting( arg.pA, event, 0);
+	//doArgAssignmentWithCasting( arg.pB, stream, 0);
+	doArgAssignmentWithCasting( arg.pB, mystream, 0);
 	send_cmd_to_device( VIRTQC_cudaEventRecord, &arg);
 
 	time_end(t_EventRecord);
 	return (cudaError_t)arg.cmd;
 }
+
+
+cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned int flags)
+{
+	VirtioQCArg arg;
+	pfunc();
+
+	memset(&arg, 0, sizeof(VirtioQCArg));
+
+	uint64_t mystream = (stream==NULL)?(uint64_t)-1:(uint64_t)stream;
+
+	doArgAssignmentWithCasting( arg.pA, event, 0);
+	doArgAssignmentWithCasting( arg.pB, mystream, flags);
+	send_cmd_to_device( VIRTQC_cudaStreamWaitEvent, &arg);
+
+	return (cudaError_t)arg.cmd;
+}
+
+
 
 cudaError_t cudaEventSynchronize(cudaEvent_t event)
 {
@@ -793,7 +843,7 @@ cudaError_t cudaEventSynchronize(cudaEvent_t event)
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, event, 0);
+	doArgAssignmentWithCasting( arg.pA, event, 0);
 	send_cmd_to_device( VIRTQC_cudaEventSynchronize, &arg);
 
 	time_end(t_EventSync);
@@ -808,8 +858,8 @@ cudaError_t cudaEventElapsedTime(float *ms,	cudaEvent_t start, cudaEvent_t end)
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, start, 0);
-	ptr( arg.pB, end, 0);
+	doArgAssignmentWithCasting( arg.pA, start, 0);
+	doArgAssignmentWithCasting( arg.pB, end, 0);
 	send_cmd_to_device( VIRTQC_cudaEventElapsedTime, &arg);
 
 	memcpy(ms, &arg.flag, sizeof(float));
@@ -826,7 +876,7 @@ cudaError_t cudaEventDestroy(cudaEvent_t event)
 
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, event, 0);
+	doArgAssignmentWithCasting( arg.pA, event, 0);
 	send_cmd_to_device( VIRTQC_cudaEventDestroy, &arg);
 
 	time_end(t_EventDestroy);
@@ -867,17 +917,42 @@ const char* cudaGetErrorString(cudaError_t 	error)
 	return "Not yet implement";
 }
 
+cudaError_t cudaPeekAtLastError(void)
+{
+	VirtioQCArg arg;
+	pfunc();
+
+	memset(&arg, 0, sizeof(VirtioQCArg));
+
+	send_cmd_to_device(VIRTQC_cudaPeekAtLastError, &arg);
+
+	return (cudaError_t)arg.cmd;
+}
+
 ////////about zero-copy
 
 cudaError_t cudaHostRegister(void *ptr, size_t size, unsigned int flags)
 {
+
+	/* VirtioQCArg arg; */
+	/* memset(&arg, 0, sizeof(VirtioQCArg)); */
+    /*  */
+	/* doArgAssignmentWithCasting( arg.pA, ptr, size); */
+    /* #<{(| arg.pA = (uint64_t)ptr; |)}># */
+    /* pfunc(); */
+    /* ptrace("[lib]Pointer is %p\n", ptr); */
+	/* send_cmd_to_device( VIRTQC_cudaHostRegister, &arg); */
+	/* return (cudaError_t)arg.cmd; */
+
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
-	ptr( arg.pA, ptr, size);
+	doArgAssignmentWithCasting( arg.pA, ptr, size);
 	arg.flag = flags;
-	
+
 	send_cmd_to_device( VIRTQC_cudaHostRegister, &arg);
-	
+
+    ptrace("Error num is %d\n", arg.cmd);
+
 	return (cudaError_t)arg.cmd;
 }
 
@@ -886,8 +961,8 @@ cudaError_t cudaHostGetDevicePointer(void ** pDevice, void *pHost, unsigned int 
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, 0,  0);
-	ptr( arg.pB, pHost,  0);
+	doArgAssignmentWithCasting( arg.pA, 0,  0);
+	doArgAssignmentWithCasting( arg.pB, pHost,  0);
 	arg.flag = flags;
 
 	send_cmd_to_device( VIRTQC_cudaHostGetDevicePointer, &arg);
@@ -901,7 +976,7 @@ cudaError_t cudaHostUnregister(void *ptr)
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, ptr,  0);
+	doArgAssignmentWithCasting( arg.pA, ptr,  0);
 
 	send_cmd_to_device( VIRTQC_cudaHostUnregister, &arg);
 
@@ -915,7 +990,7 @@ cudaError_t cudaStreamCreate(cudaStream_t *pStream)
 {
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
-	//ptr( arg.pA, pStream,  0);
+	//doArgAssignmentWithCasting( arg.pA, pStream,  0);
 	send_cmd_to_device( VIRTQC_cudaStreamCreate, &arg);
 
 	*pStream = (cudaStream_t)arg.pA;
@@ -928,7 +1003,7 @@ cudaError_t cudaStreamDestroy(cudaStream_t stream)
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	ptr( arg.pA, stream, 0);
+	doArgAssignmentWithCasting( arg.pA, stream, 0);
 	send_cmd_to_device( VIRTQC_cudaStreamDestroy, &arg);
 
 	return (cudaError_t)arg.cmd;
@@ -942,25 +1017,60 @@ cudaError_t cudaStreamSynchronize(cudaStream_t 	stream)
 
 	uint64_t mystream = (uint64_t)stream;
 
-	ptr( arg.pA, mystream, 0);
+	doArgAssignmentWithCasting( arg.pA, mystream, 0);
 
 	send_cmd_to_device( VIRTQC_cudaStreamSynchronize, &arg);
 
 	return (cudaError_t)arg.cmd;
 }
 
+
+void cudaPointerTest(void *pHost)
+{
+	VirtioQCArg arg;
+	memset(&arg, 0, sizeof(VirtioQCArg));
+
+	/* doArgAssignmentWithCasting( arg.pA, *pHost, size); */
+    arg.pA = (uint64_t)pHost;
+	send_cmd_to_device( VIRTQC_cudaPointerTest, &arg);
+	/* return (cudaError_t)arg.cmd; */
+}
+
 // Macro to aligned up to the memory size in question                                                         
 #define MEMORY_ALIGNMENT  4096
 #define ALIGN_UP(x,size) ( ((size_t)x+(size-1))&(~(size-1)) )
-
-cudaError_t cudaHostAlloc(void **pHost, size_t size, unsigned int flags)
+cudaError_t cudaHostAlloc(void **pHost, uint64_t size, unsigned int flags)
 {
-	void *a_UA = __zcmalloc(size + MEMORY_ALIGNMENT);
-	*pHost = (void *) ALIGN_UP(a_UA, MEMORY_ALIGNMENT);
+	VirtioQCArg arg;
+	memset(&arg, 0, sizeof(VirtioQCArg));
 
-	return cudaHostRegister(*pHost, size, flags);
+    ptrace("size is %zu\n", (size_t)size);
+	*pHost = __zcmalloc(ALIGN_UP(size, MEMORY_ALIGNMENT));
+    /* ptrace("sizeof (pHostUnaligned) is:%zu\n", sizeof(pHostUnaligned)); */
+    /* *pHost = (void *) ALIGN_UP(pHostUnaligned, MEMORY_ALIGNMENT); */
+	doArgAssignmentWithCasting( arg.pA, *pHost, size);
+
+    pfunc();
+    ptrace("[lib]Pointer is %p\n", *pHost);
+	send_cmd_to_device( VIRTQC_cudaHostAlloc, &arg);
+    ptrace("[lib] cuPtr is %p\n", (void*)arg.pB);
+	return (cudaError_t)arg.cmd;
+
+    /* ptrace("size + memory aligment is %lx", size+MEMORY_ALIGNMENT); */
+	/* void *pHostUnaligned = __zcmalloc(size + MEMORY_ALIGNMENT); */
+	/* *pHost = (void *) ALIGN_UP(pHostUnaligned, MEMORY_ALIGNMENT); */
+
+    /* ptrace("[qcu-library] pass align_up:%p\n", *pHost); */
+	/* doArgAssignmentWithCasting( arg.pA, *pHost, size); */
+	/* arg.flag = flags; */
+    /* ptrace("[qcu-library] pass doArgAssignment\n"); */
+    /*  */
+	/* send_cmd_to_device( VIRTQC_cudaHostAlloc, &arg); */
+    /* ptrace("[qcu-library] pass send_cmd_to_device\n"); */
+    /* ptrace("Error num is %d\n", arg.cmd); */
+	/* return (cudaError_t)arg.cmd; */
+
 }
-
 cudaError_t cudaMallocHost(void **pHost, size_t size)
 {
 	return cudaHostAlloc(pHost, size, cudaHostAllocDefault);
@@ -981,7 +1091,7 @@ cudaError_t cudaFreeHost(void *ptr)
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
 	
-	ptr(arg.pA, ptr, 0);
+	doArgAssignmentWithCasting(arg.pA, ptr, 0);
 	send_cmd_to_device( VIRTQC_cudaFreeHost, &arg);
 	return (cudaError_t)arg.cmd;
 }
@@ -994,47 +1104,6 @@ cudaError_t cudaThreadSynchronize()
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
 	send_cmd_to_device( VIRTQC_cudaThreadSynchronize, &arg);
-	return (cudaError_t)arg.cmd;
-}
-
-
-cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr, const void *func)
-{
-	VirtioQCArg arg;
-	memset(&arg, 0, sizeof(VirtioQCArg));
-	send_cmd_to_device( VIRTQC_cudaFuncGetAttributes, &arg);
-	return (cudaError_t)arg.cmd;
-}
-
-cudaError_t cudaDeviceGetAttribute(int * value, enum cudaDeviceAttr attr, int device)
-{
-	VirtioQCArg arg;
-	memset(&arg, 0, sizeof(VirtioQCArg));
-    send_cmd_to_device(VIRTQC_cudaDeviceGetAttributes, &arg);
-    return (cudaError_t)arg.cmd;
-
-}
-cudaError_t cudaStreamWaitEvent(cudaStream_t stream, cudaEvent_t event, unsigned int flags)
-{
-    return 0;
-}
-
-cudaError_t cudaDeviceSetCacheConfig(enum cudaFuncCache cacheConfig)
-{
-	VirtioQCArg arg;
-	memset(&arg, 0, sizeof(VirtioQCArg));
-	send_cmd_to_device( VIRTQC_cudaDeviceSetCacheConfig, &arg);
-	return (cudaError_t)arg.cmd;
-}
-cudaError_t cudaPeekAtLastError(void)
-{
-	VirtioQCArg arg;
-	pfunc();
-
-	memset(&arg, 0, sizeof(VirtioQCArg));
-
-	send_cmd_to_device(VIRTQC_cudaPeekAtLastError, &arg);
-
 	return (cudaError_t)arg.cmd;
 }
 

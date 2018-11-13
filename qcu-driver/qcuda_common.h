@@ -50,7 +50,7 @@ enum
 	// Device Management (runtime API)
 	VIRTQC_cudaGetDevice,
 	VIRTQC_cudaGetDeviceCount,
-    VIRTQC_cudaDeviceGetAttributes,
+    VIRTQC_cudaDeviceGetAttribute,
 	VIRTQC_cudaGetDeviceProperties,
 	VIRTQC_cudaSetDevice,
 	VIRTQC_cudaDeviceSynchronize,
@@ -76,6 +76,7 @@ enum
 
 	//zero-cpy
 	VIRTQC_cudaHostRegister,
+    VIRTQC_cudaHostAlloc,
 	VIRTQC_cudaHostGetDevicePointer,
 	VIRTQC_cudaHostUnregister,
 	VIRTQC_cudaSetDeviceFlags,
@@ -89,6 +90,7 @@ enum
 
 	// Thread Management
 	VIRTQC_cudaThreadSynchronize,
+    VIRTQC_cudaPointerTest,
 };
 
 typedef struct VirtioQCArg   VirtioQCArg;

@@ -4,7 +4,10 @@
 /config-host.*
 /config.status
 /docs/*
-/config-host.*
+/config-all-devices.mak
+/config-all-disas.mak
+/config.log
+/config.status
 /trace-events-all
 /trace/generated-events.h
 /trace/generated-events.c
@@ -19,7 +22,6 @@ trace/generated-helpers.h-timestamp
 trace/generated-tcg-tracers.h-timestamp
 trace/generated-tracers.h
 trace/generated-tracers.h-timestamp
-
 /pc-bios/optionrom/linuxboot.asm
 /pc-bios/optionrom/linuxboot.bin
 /pc-bios/optionrom/linuxboot.raw
@@ -54,3 +56,7 @@ trace/generated-tracers.h-timestamp
 /html/*
 /latex/*
 /linux-headers/asm
+/aarch64-softmmu/config-target.h
+/aarch64-softmmu/config-target.h-timestamp
+/aarch64-softmmu/config-target.mak
+/roms/seabios/config.mak

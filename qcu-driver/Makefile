@@ -4,6 +4,7 @@ MOD	:= qcuda
 
 obj-m := ${MOD}.o
 ${MOD}-objs := ${MOD}_driver.o
+ccflags-y 	= -std=gnu99 -Wno-declaration-after-statement -Wformat=0
 
 #CFLAGS_MODULE+=-I/usr/local/cuda/include
 KERDIR:=/lib/modules/$(shell uname -r)/build
@@ -12,13 +13,13 @@ KERDIR:=/lib/modules/$(shell uname -r)/build
 all: c
 
 c compile:
-	make -C $(KERDIR) M=$(PWD) modules
+	make  -C $(KERDIR) M=$(PWD) modules
 
 clean:
 	make -C $(KERDIR) M=$(PWD) clean
 	rm -f modules.order *.o *.mod.c *.mod.o *.ko
 
-i insmod: c
+i insmod:
 	sudo dmesg -C
 	sudo insmod $(MOD).ko
 	-sudo chmod 666 /dev/qcuda

@@ -17,14 +17,14 @@
 
 
 #if 1
-#define pfunc() printf("### %s at line %d\n", __func__, __LINE__)
+#define pfunc() printf("@@@ %s at line %d\n", __func__, __LINE__)
 #else
 #define pfunc()
 #endif
 
 #if 1
 #define ptrace(fmt, arg...) \
-	printf("    " fmt, ##arg)
+	printf("" fmt, ##arg)
 #else
 #define ptrace(fmt, arg...)
 #endif
@@ -48,17 +48,33 @@ uint32_t deviceSpaceSize = 0;
 
 cudaError_t global_err; //cocotion new modify
 
+int32_t test_fd = -1;
+uint64_t *test_gpa_array = NULL;
+int     test_numOfBlocks = -1;
+
 static void* gpa_to_hva(uint64_t pa) 
 {
 	MemoryRegionSection section;
 
 	section = memory_region_find(get_system_memory(), (ram_addr_t)pa, 1);
+
+
+    if (!int128_nz(section.size)) {
+        error("trigger int128_nz\n");
+    }
+    if(!section.mr) {
+        error("section.mr is null pointer\n");
+    }
+    if (!memory_region_is_ram(section.mr)) {
+        error("trigger memory_region_is_ram\n");
+    }
+
 	if ( !int128_nz(section.size) || !memory_region_is_ram(section.mr)){
 		error("addr %p in rom\n", (void*)pa); 
 		return 0;
 	}
 
-	return (memory_region_get_ram_ptr(section.mr) + section.offset_within_region);
+    return (memory_region_get_ram_ptr(section.mr) + section.offset_within_region);
 }
 
 #ifdef CONFIG_CUDA
@@ -102,7 +118,7 @@ cudaDev zeroedDevice;
 kernelInfo devicesKernels[cudaFunctionMaxNum];
 
 
-__inline__ unsigned int getCurrentID(unsigned int tid);
+extern __inline__ unsigned int getCurrentID(unsigned int tid);
 
 #define cudaError(err) __cudaErrorCheck(err, __LINE__)
 static inline void __cudaErrorCheck(cudaError_t err, const int line)
@@ -186,7 +202,7 @@ static cudaError_t initializeDevice(unsigned int id)
 
 }
 
-__inline__ unsigned int getCurrentID(unsigned int tid)
+extern __inline__ unsigned int getCurrentID(unsigned int tid)
 {
 	return tid % totalDevices;
 }
@@ -917,39 +933,153 @@ static void qcu_cudaGetLastError(VirtioQCArg *arg)
 
 //////////zero-copy////////
 
+static unsigned int BKDRHash(char *ptr, int size)
+{
+    unsigned int hash = 0;
+    for(int i=0; i<size; i++)
+        hash = (hash<<5) - hash + (*ptr++);
+    return (hash);
+}
+
+#define MIN(a,b) (((a)<(b))? (a):(b))
+// @arg->pBSize: file descriptor of /dev/qcuvf file
+static void qcu_cudaHostAlloc(VirtioQCArg *arg)
+{
+    size_t      size, len;
+	int32_t     fd;
+    uint64_t   *gpa_array;
+    char       *cuStartPtr;
+    cudaError_t err;
+        
+    
+    pfunc();
+    size      = arg->pASize; 
+    pfunc();
+    gpa_array = gpa_to_hva(arg->pA);
+    pfunc();
+    fd  = (int32_t)ldl_p(&arg->pBSize);
+    pfunc();
+    err = 0;
+
+    pfunc();
+    // check gpa_array identical
+    dump_gpa_array(gpa_array);
+    pfunc();
+
+    // do real cudaHostAlloc
+    err = cudaHostAlloc((void**)&cuStartPtr, size, arg->flag);
+    pfunc();
+    ptrace("@@ size is %zu\n", size);
+    ptrace("@@ fd is %d\n", arg->pBSize);
+
+    munmap(cuStartPtr, (size_t) size);
+    char * map = mmap(cuStartPtr, (size_t) size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    // 由 cuStartPtr 去寫
+    for (int i=0; i<size; i++) {
+        map[i] = (i%128);
+    }
+
+    /*     #<{(| ptrace("%c", *((char*)cuStartPtr+i)); |)}># */
+    /*     #<{(| ptrace("done\n"); |)}># */
+    /*     #<{(| *((char*)(cuStartPtr+i)) = 'a'; |)}># */
+    /* } */
+
+    // 由 cuStartPtr 去讀
+    /* for (int i=0; i<size; i++) { */
+    /*     ptrace("%c", *((char*)cuStartPtr+i)); */
+        /* ptrace("done\n"); */
+        /* *((char*)(cuStartPtr+i)) = 'a'; */
+    pfunc();
+    // 讀取 fd 看值是否寫入
+    /* char *buF = (char*)malloc(100000000 * sizeof(char)); */
+    /* lseek(fd, 0, SEEK_SET); */
+    /* read(fd, buF, size); */
+
+    /* for (int i=0; i<size; i++) { */
+    /*     ptrace("map: %c\t cuStartPtr: %c\t \n ", map[i], *((char*)(cuStartPtr+i))); */
+    /* } */
+
+    // 讀取 綠色 block, 驗證
+    len = size;
+    /*  */
+    void * addr;
+    ptrace("@@ test_numOfBlocks:%d  BLOCK_SIZE:%d\n", test_numOfBlocks, BLOCK_SIZE);
+
+    /* ptrace("@@ test_gpa_array after: %p\n", test_gpa_array); */
+	/* for(int i = 0; i < test_numOfBlocks; i++) */
+	/* { */
+    /*     ptrace("len is %zu\n", len); */
+	/* 	addr = gpa_to_hva(test_gpa_array[i]); */
+    /*     ptrace("@@  addr: %p\n", addr); */
+    /*     for(int j=0; j<MIN(BLOCK_SIZE, len); j++) { */
+    /*         ptrace("%c", *((char*)(addr+j))); */
+    /*     } */
+    /*     len -= BLOCK_SIZE; */
+	/* }	 */
+
+    /* ptrace("@@ cuStartPtr is "); */
+    /* for (int i=0; i<size; i++) { */
+    /*     ptrace("%c", *((char*)cuStartPtr+i)); */
+    /* } */
+    /*  */
+    /*  */
+    /* for(int i=0; i<size; i++) */
+    /*     ptrace("%c\n",*((char*)cuStartPtr+i)); */
+    /* for(int i=0; i<100;i++) { */
+    /*     cuStartPtr[i] = 'k'; */
+    /*     printf("%c\n", cuStartPtr[i]); */
+    /* } */
+    /* ptrace("@@ [Before] hash: %u\n", BKDRHash((char*) gpa_array, sizeof(int)*len)); */
+    /* err = cudaHostAlloc((void**)&gpa_array, arg->pASize, arg->flag); */
+
+    /* for(int i=0; i<len; i++){*(gpa_array+i) = 1;} */
+    /* ptrace("@@ [After] hash: %u\n", BKDRHash((char*) gpa_array, sizeof(int)*len)); */
+
+
+}
+
 static void qcu_cudaHostRegister(VirtioQCArg *arg)
 {
-	int size, i;
-	cudaError_t err = 0;
-	void *ptr;
-	uint64_t *gpa_array;
-	size = arg->pASize;
-	gpa_array = gpa_to_hva(arg->pA);
-	
-	for(i = 0; size>0; i++)
-	{
-    	ptr = gpa_to_hva(gpa_array[i]);
-		err = cudaHostRegister(ptr, MIN(BLOCK_SIZE,size), arg->flag);
-        ptrace("ptr: %x, size: %d, flag: %d", ptr, MIN(BLOCK_SIZE,size), arg->flag); 
-        ptrace("error is: %d\n", err);
-		size-=BLOCK_SIZE;	
-	}
-	arg->cmd = err;
+    int *guestPtr;
+    guestPtr = gpa_to_hva(arg->pA);
+    ptrace("@@ guestPtr value  is %d\n", *guestPtr);
 
-	//fix for cudaHostGetDevicePointer start
-
-	int fd = ldl_p(&arg->pBSize);
-	uint64_t offset = arg->rnd;	
-	size = arg->pASize;
-	
-	ptr = mmap(0, arg->pB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
- 	
-	err = cudaHostRegister(ptr, size, arg->flag);
-	arg->rnd = (uint64_t)ptr;
-	arg->cmd = err;
-
-	//fix for cudaHostGetDevicePointer end
+    *guestPtr = 10;
 }
+/* static void qcu_cudaHostRegister(VirtioQCArg *arg) */
+/* { */
+/* 	int size, i; */
+/* 	cudaError_t err = 0; */
+/* 	void *ptr; */
+/* 	uint64_t *gpa_array; */
+/* 	size = arg->pASize; */
+/* 	gpa_array = gpa_to_hva(arg->pA); */
+/* 	 */
+/* 	for(i = 0; size>0; i++) */
+/* 	{ */
+/*     	ptr = gpa_to_hva(gpa_array[i]); */
+/* 		err = cudaHostRegister(ptr, MIN(BLOCK_SIZE,size), arg->flag); */
+/*         ptrace("ptr: %x, size: %d, flag: %d", ptr, MIN(BLOCK_SIZE,size), arg->flag);  */
+/*         ptrace("error is: %d\n", err); */
+/* 		size-=BLOCK_SIZE;	 */
+/* 	} */
+/* 	arg->cmd = err; */
+/*  */
+/* 	//fix for cudaHostGetDevicePointer start */
+/*  */
+/* 	int fd = ldl_p(&arg->pBSize); */
+/* 	uint64_t offset = arg->rnd;	 */
+/* 	size = arg->pASize; */
+/* 	 */
+/* 	ptr = mmap(0, arg->pB, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset); */
+/*  	 */
+/* 	err = cudaHostRegister(ptr, size, arg->flag); */
+/* 	arg->rnd = (uint64_t)ptr; */
+/* 	arg->cmd = err; */
+/*  */
+/* 	//fix for cudaHostGetDevicePointer end */
+/* } */
 
 static void qcu_cudaHostGetDevicePointer(VirtioQCArg *arg)
 {
@@ -1134,7 +1264,7 @@ static int qcu_cmd_read(VirtioQCArg *arg)
 
 	return 0;
 }
-
+// arg->pB: uvm_start address
 static int qcu_cmd_mmapctl(VirtioQCArg *arg)
 {
 
@@ -1146,9 +1276,10 @@ static int qcu_cmd_mmapctl(VirtioQCArg *arg)
 	int fd=open(vfname, O_CREAT|O_RDWR,0666);
     if(fd<0)
     {   
-        printf("failure to open\n");
+        printf("failure to open %s\n", vfname);
         exit(0);
     } 
+    ptrace("pBSize is %d\n", arg->pBSize);
 	if(lseek(fd,arg->pBSize,SEEK_SET)==-1) 
     {   
         printf("Failure to lseek\n");
@@ -1160,7 +1291,9 @@ static int qcu_cmd_mmapctl(VirtioQCArg *arg)
         exit(0);
     }   
 	
+    // stl_p(ptr, value)
 	stl_p(&arg->pA, fd);
+    pfunc();
 	
 	return 0;
 }
@@ -1178,23 +1311,47 @@ static int qcu_cmd_close(VirtioQCArg *arg)
 	return 0;
 }
 
-static int qcu_cmd_mmap(VirtioQCArg *arg){
+static int qcu_cmd_mmap(VirtioQCArg *arg) {
 		
-	//arg->pA: file fd
+	//arg->pA:     fd
 	//arg->pASize: numOfblocks
-	//arg->pB: gpa_array
+	//arg->pB:     gpa_array
 
-	int32_t fd = (int32_t)ldl_p(&arg->pA);
-	uint64_t *gpa_array = gpa_to_hva(arg->pB);
-	void *addr;
+	int32_t   fd; 
+	uint64_t *gpa_array; 
+	void     *addr;
+
+    fd        = (int32_t)ldl_p(&arg->pA);
+    gpa_array = gpa_to_hva(arg->pB);
    	
+    test_fd = fd;
+    test_gpa_array = gpa_array;
+    test_numOfBlocks = arg->pASize;
+    dump_gpa_array(gpa_array);
+
 	int i;
 	for(i = 0; i < arg->pASize; i++)
 	{
 		addr = gpa_to_hva(gpa_array[i]);
+        /* ptrace("@@ addr is %p\n", (void *)addr); */
 		munmap(addr, BLOCK_SIZE);
    		mmap(addr, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, i*BLOCK_SIZE);
 	}	
+    int fd_size = lseek(fd, 0, SEEK_END);
+    ptrace("@@ fd_size is %d\n", fd_size);
+    /* addr = gpa_to_hva(gpa_array[0]); */
+    /* for(int k=0; k < fd_size; k++) */
+    /* { */
+    /*         *(char*)(addr+k) = (k%128); */
+    /*         #<{(| ptrace("%d\n", k); |)}># */
+    /* } */
+    /* ptrace("@@ test_gpa_array orig: %p\n", test_gpa_array); */
+    /* for(int j =0; j<test_numOfBlocks; j++) { */
+    /*     addr = gpa_to_hva(test_gpa_array[j]); */
+    /*     ptrace("@@  addr: %p", addr); */
+    /*     for(int k=0; k<BLOCK_SIZE; k++) */
+    /*         ptrace("%c", *(char*)(addr+k)); */
+    /* } */
 
 
     return 0;
@@ -1412,6 +1569,14 @@ static void virtio_qcuda_cmd_handle(VirtIODevice *vdev, VirtQueue *vq)
 				qcu_cudaHostRegister(arg);
 				break;
 		
+            /* case VIRTQC_cudaPointerTest: */
+            /*     qcu_cudaPointerTest(arg); */
+            /*     break; */
+
+            case VIRTQC_cudaHostAlloc:
+                qcu_cudaHostAlloc(arg);
+                break;
+
 			case VIRTQC_cudaHostGetDevicePointer:
 				qcu_cudaHostGetDevicePointer(arg);
 				break;
@@ -1468,43 +1633,6 @@ static uint64_t virtio_qcuda_get_features(VirtIODevice *vdev, uint64_t features,
 	return features;
 }
 
-/*
-   static void virtio_qcuda_device_unrealize(DeviceState *dev, Error **errp)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_get_config(VirtIODevice *vdev, uint8_t *config)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_set_config(VirtIODevice *vdev, const uint8_t *config)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_reset(VirtIODevice *vdev)
-   {
-   ptrace("\n");
-   }
-
-   static void virtio_qcuda_save_device(VirtIODevice *vdev, QEMUFile *f)
-   {
-   ptrace("\n");
-   }
-
-   static int virtio_qcuda_load_device(VirtIODevice *vdev, QEMUFile *f, int version_id)
-   {
-   ptrace("\n");
-   return 0;
-   }
-
-   static void virtio_qcuda_set_status(VirtIODevice *vdev, uint8_t status)
-   {
-   ptrace("\n");
-   }
- */
 
 /*
    get the configure
@@ -1560,4 +1688,12 @@ static void virtio_qcuda_register_types(void)
 	type_register_static(&virtio_qcuda_device_info);
 }
 
+// For testing and debugging
+void dump_gpa_array(uint64_t* gpa_array)
+{
+    ptrace("@@ pid is %d\n", getpid());
+	for(int i = 0; i < test_numOfBlocks; i++) {
+        ptrace("gpa_array[%d] is %p\n",i,  gpa_array[i]);
+    }
+}
 type_init(virtio_qcuda_register_types)

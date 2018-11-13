@@ -1,7 +1,11 @@
 
 CUDA_INC=/usr/local/cuda/include
+CUDA_LIB=/usr/local/cuda-8.0/lib64
 
 LIB=libcudart
+CUDA_VER=8.0
+
+.PHONY: install clean remove
 
 all: lib
 
@@ -16,17 +20,17 @@ libcudart:
 lib: $(LIB)
 
 install: libcudart
-	sudo cp libcudart.so /usr/local/lib/
-	sudo ln -sf libcudart.so /usr/local/lib/libcudart.so.7.5
-	sudo rm -f /etc/ld.so.conf.d/cuda-7.5.conf
-	sudo ldconfig
+	sudo cp libcudart.so /usr/local/lib/                                                                                          
+	sudo ln -sf libcudart.so /usr/local/lib/libcudart.so.8.0
+	sudo rm -f /etc/ld.so.conf.d/cuda-8-0.conf                                                                                    
+	sudo ldconfig 
 
 clean:
 	rm -f *.so *.o 
 
 remove:
-	sudo rm -f /usr/local/lib/libcudart.so /usr/local/lib/libcudart.so.7.5
-	sudo su -c "echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda-7.5.conf"
+	sudo rm -f /usr/local/lib/libcudart.so /usr/local/lib/libcudart.so.$(CUDA_VER)
+	sudo su -c "echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda-8-0.conf"
 	sudo ldconfig
 
 #/usr/local/cuda/bin/nvcc --cudart=shared $(USR).c
