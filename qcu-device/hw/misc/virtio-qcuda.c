@@ -947,24 +947,14 @@ static void qcu_cudaHostAlloc(VirtioQCArg *arg)
 {
     size_t      size, len;
 	int32_t     fd;
-    uint64_t   *gpa_array;
     char       *cuStartPtr;
     cudaError_t err;
         
     
-    pfunc();
     size      = arg->pASize; 
-    pfunc();
-    gpa_array = gpa_to_hva(arg->pA);
-    pfunc();
     fd  = (int32_t)ldl_p(&arg->pBSize);
-    pfunc();
     err = 0;
 
-    pfunc();
-    // check gpa_array identical
-    dump_gpa_array(gpa_array);
-    pfunc();
 
     // do real cudaHostAlloc
     err = cudaHostAlloc((void**)&cuStartPtr, size, arg->flag);
@@ -977,20 +967,11 @@ static void qcu_cudaHostAlloc(VirtioQCArg *arg)
 
     // 由 cuStartPtr 去寫
     for (int i=0; i<size; i++) {
-        map[i] = (i%128);
+        map[i] = (i % 95) + 32;
+        /* map[i] = '@'; */
+        ptrace("%c", *((char*)(cuStartPtr+i)));
     }
 
-    /*     #<{(| ptrace("%c", *((char*)cuStartPtr+i)); |)}># */
-    /*     #<{(| ptrace("done\n"); |)}># */
-    /*     #<{(| *((char*)(cuStartPtr+i)) = 'a'; |)}># */
-    /* } */
-
-    // 由 cuStartPtr 去讀
-    /* for (int i=0; i<size; i++) { */
-    /*     ptrace("%c", *((char*)cuStartPtr+i)); */
-        /* ptrace("done\n"); */
-        /* *((char*)(cuStartPtr+i)) = 'a'; */
-    pfunc();
     // 讀取 fd 看值是否寫入
     /* char *buF = (char*)malloc(100000000 * sizeof(char)); */
     /* lseek(fd, 0, SEEK_SET); */
@@ -1003,7 +984,6 @@ static void qcu_cudaHostAlloc(VirtioQCArg *arg)
     // 讀取 綠色 block, 驗證
     len = size;
     /*  */
-    void * addr;
     ptrace("@@ test_numOfBlocks:%d  BLOCK_SIZE:%d\n", test_numOfBlocks, BLOCK_SIZE);
 
     /* ptrace("@@ test_gpa_array after: %p\n", test_gpa_array); */
@@ -1319,7 +1299,7 @@ static int qcu_cmd_mmap(VirtioQCArg *arg) {
 
 	int32_t   fd; 
 	uint64_t *gpa_array; 
-	void     *addr;
+	void     *addr, *start;
 
     fd        = (int32_t)ldl_p(&arg->pA);
     gpa_array = gpa_to_hva(arg->pB);
@@ -1335,7 +1315,10 @@ static int qcu_cmd_mmap(VirtioQCArg *arg) {
 		addr = gpa_to_hva(gpa_array[i]);
         /* ptrace("@@ addr is %p\n", (void *)addr); */
 		munmap(addr, BLOCK_SIZE);
-   		mmap(addr, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, i*BLOCK_SIZE);
+   		start = mmap(addr, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, i*BLOCK_SIZE);
+        for(int i=0; i<BLOCK_SIZE; i++) 
+            *(char*)(start+i) = '#';
+        
 	}	
     int fd_size = lseek(fd, 0, SEEK_END);
     ptrace("@@ fd_size is %d\n", fd_size);

@@ -20,6 +20,7 @@
 #include <linux/random.h>
 #include <linux/io.h>
 #include <linux/sort.h>
+#include <linux/delay.h>
 
 #include "qcuda_common.h"
 
@@ -29,8 +30,9 @@
 #define pfunc()
 #endif
 
+//#define ptrace(fmt, ...)  printk("[ptrace] [%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__);
 #if 1
-#define ptrace(fmt, ...)  printk("[ptrace] [%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__);
+#define ptrace(fmt, ...)  printk("" fmt,  ##__VA_ARGS__);
 #else
 #define ptrace(fmt, arg...)
 #endif
@@ -76,7 +78,7 @@ struct virtio_qc_mmap{
 };
 
 
-
+static uint64_t gpa_array_start = 0;
 ////////////////////////////////////////////////////////////////////////////////
 ///	General Function
 ////////////////////////////////////////////////////////////////////////////////
@@ -288,16 +290,13 @@ static int qcu_misc_send_cmd(VirtioQCArg *req)
 	spin_lock(&qcu->lock);
 
 	err =  virtqueue_add_sgs(qcu->vq, sgs, 1, 1, req, GFP_ATOMIC);
-    ptrace("############# err is %d\n", err);
 	if( err ){
-        ptrace("#################### error happened\n");
 		virtqueue_kick(qcu->vq);
 		error("virtqueue_add_sgs failed\n");
 		goto out;
 	}
 
 	if(unlikely(!virtqueue_kick(qcu->vq))){
-        ptrace("####################!virtqueue_kick(qcu->vq) error happened\n");
 		error("unlikely happen\n");
 		goto out;
 	}
@@ -485,8 +484,8 @@ static uint64_t get_gpa_array_start_phys(uint64_t from, struct virtio_qc_mmap* p
 static void free_gpa_array(uint64_t pa)
 {
 
-    ptrace("pa orig addr is %p %p\n", (void *)pa, (void *)(phys_addr_t)pa);
-    ptrace("pa addr is %p\n", phys_to_virt((phys_addr_t)pa));
+    /* ptrace("pa orig addr is %p %p\n", (void *)pa, (void *)(phys_addr_t)pa); */
+    /* ptrace("pa addr is %p\n", phys_to_virt((phys_addr_t)pa)); */
 	kfree(phys_to_virt((phys_addr_t)pa));	
 }
 
@@ -930,13 +929,11 @@ static int mmapctl(struct virtio_qc_mmap *priv)
 
 	arg->pB = priv->group->uvm_start;
 	arg->pBSize = (priv->group->numOfblocks) * (priv->block_size);
-    ptrace("@@ priv->group->numOfblocks:%d \t priv->block_size:%d\n",priv->group->numOfblocks, priv->block_size);
+    /* ptrace("@@ priv->group->numOfblocks:%d \t priv->block_size:%d\n",priv->group->numOfblocks, priv->block_size); */
 		
 
-    /* ptrace("################################## arg->pA before qcu_misc_send_cmd :%d \n", arg->pA ); */
 	qcu_misc_send_cmd(arg);
 	
-    /* ptrace("################################## arg->pA after qcu_misc_send_cmd :%d \n", arg->pA ); */
 	priv->group->file = arg->pA;
     /* ptrace("group->file:%d \n", priv->group->file); */
     
@@ -967,59 +964,36 @@ static void qcummap(struct virtio_qc_mmap *priv)
 	
 	arg->pA	 = priv->group->file;
 	arg->pASize = priv->group->numOfblocks;
-    ptrace("@@ arg->pASize is %d\n", arg->pASize);
 	arg->pB	 = get_gpa_array(priv->group, arg->pASize);
+    gpa_array_start = arg->pB;
+    ptrace("@@1 %d %d\n", priv->group, arg->pASize);
+    ptrace("@@# arg->pB is %p\n", arg->pB);
+    ptrace("@@# gpa_array_start is %p\n", gpa_array_start);
 
 	qcu_misc_send_cmd(arg);
 	
-	kfree(phys_to_virt((phys_addr_t)(arg->pB)));
+	/* kfree(phys_to_virt((phys_addr_t)(arg->pB))); */
 	kfree(arg);
 }
 
 /////////zero-copy/////////
 void qcu_cudaHostAlloc_driver(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
 {
-    /* void *ptr; */
-    /* ptrace("@@ pHost address is %p\n", (void*)arg->pA); */
-    /* ptrace("@@ in\n"); */
-    /*  */
-    /* ptr = (void*)arg->pA; */
-    /* arg->pA = user_to_gpa(arg->pA, arg->pASize); */
-    /* arg->pB = arg->pASize; */
-    /* ptrace("@@ in\n"); */
-    /* ptrace("@@ pHost address is %p\n", (void*)arg->pA); */
-    /*  */
-	/* qcu_misc_send_cmd(arg); */
-    /*  */
-    /* gpa_to_user(ptr, arg->pA, arg->pASize); */
-    /* #<{(| ptrace("@@ pHost value is %d\n", *((int*)(arg->pA))); |)}># */
-    /* ptrace("@@ pHost value is %d\n", *((int*)(ptr))); */
-	/* kfree_gpa(arg->pA, arg->pASize); */
-
-    /* test
-     sfasfsdf
-    */
-     
 
 	uint64_t gasp;
     size_t size = arg->pASize;
 	struct virtio_qc_page *group;	
 
 	gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize));
-    ptrace("gasp is %x %p\n", (unsigned int)gasp, (void *)gasp);
-    ptrace("@@ arg->pASize is %zu\n", arg->pASize);
 
 
 	//fix for cudaHostGetDevicePointer start
 	//TODO: if not find
 	group = find_page_group(arg->pA, priv);
 	priv->group = group;
-    ptrace("group->file:%d \n", group->file);
-    ptrace("priv addr:%x priv->group addr:%x\n", (unsigned int)priv, priv->group);
     pfunc();
 
 	arg->pB = priv->block_size*priv->group->numOfblocks;
-    ptrace("blocksize: %d, numofblocks:%d\n",priv->block_size, priv->group->numOfblocks);
     /* pfunc(); */
 
 	//TODO: error handling	
@@ -1029,26 +1003,31 @@ void qcu_cudaHostAlloc_driver(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
     /*  */
 	arg->rnd = arg->pA - group->uvm_start; //offset 
 	arg->pBSize = group->file; //fd
-    ptrace("@@ fd is %d\n", group->file);
 	/* //fix for cudaHostGetDevicePointer end */
     /*  */
-	arg->pA = gasp;
+	arg->pA = gpa_array_start ;
+	/* arg->pA = gasp; */
+    ptrace("@@# arg->pA is %p\n", arg->pA);
 
-    // ad-hoc
-    /* void *tmp = kmalloc_safe(size+10); */
-    /* gpa_to_user((void*)tmp, gasp, size); */
+
+    uint64_t *gva_array = (uint64_t*)phys_to_virt((phys_addr_t)gpa_array_start);
+
 
 	qcu_misc_send_cmd(arg);
-    ptrace("@@@ arg->pA is %x %p\n", arg->pA, arg->pA);
-    int i;
-    pfunc();
-    /* for(i=0; i<size; i++) { */
-    /*     ptrace("|%c ", *((char*)(tmp+i))); */
-    /* } */
-    pfunc();
+
+
+    /* uint64_t *gva_array = (uint64_t*)phys_to_virt((phys_addr_t)gpa_array_start); */
+    ptrace("BLOCKSIZE is %d\n", priv->block_size);
+    ptrace("BLOCKSIZEa is %d\n", priv->block_size);
+
+    for(int i=0; i < priv->block_size;i+=1) {
+        ptrace("%c", *((char *)(group->page[0]+i)));
+        /* ptrace("%c ", *((char *)(gva_array[0]+i))); */
+        /* ptrace("%c%c%c%c%c",*((char*)gva_array+i) , *((char*)gva_array+i+1),*((char*)gva_array+i+2),*((char*)gva_array+i+3),*((char*)gva_array+i+4)) ; */
+    }
+
 	free_gpa_array(arg->pA);
-    /* pfunc(); */
-    /*  */
+	/* kfree(phys_to_virt((phys_addr_t)(gpa_array_start))); */
 	group->data = arg->rnd; //fix for cudaHostGetDevicePointer
 
 }
@@ -1062,38 +1041,6 @@ void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
     ptrace("@@ pHost address is %p\n", (void*)arg->pA);
 	qcu_misc_send_cmd(arg);
 }
-/* void qcu_cudaHostRegister(VirtioQCArg *arg, struct virtio_qc_mmap *priv) */
-/* { */
-/* 	uint64_t gasp; */
-/* 	 */
-/* 	gasp = get_gpa_array_start_phys(arg->pA, priv, arg->pASize, &(arg->pBSize)); */
-/*  */
-/*  */
-/* 	//fix for cudaHostGetDevicePointer start */
-/* 	struct virtio_qc_page *group;	 */
-/* 	//TODO: if not find */
-/* 	group = find_page_group(arg->pA, priv); */
-/* 	priv->group = group; */
-/*     pfunc(); */
-/*  */
-/* 	arg->pB = priv->block_size*priv->group->numOfblocks; */
-/*     pfunc(); */
-/* 	 */
-/* 	//TODO: error handling	 */
-/* 	mmapctl(priv); */
-/* 	qcummap(priv); */
-/*  */
-/* 	arg->rnd = arg->pA - group->uvm_start; //offset  */
-/* 	arg->pBSize = group->file; //fd */
-/* 	//fix for cudaHostGetDevicePointer end */
-/*   */
-/* 	arg->pA = gasp; */
-/* 	qcu_misc_send_cmd(arg); */
-/* 	free_gpa_array(arg->pA); */
-/*     pfunc(); */
-/*  */
-/* 	group->data = arg->rnd; //fix for cudaHostGetDevicePointer */
-/* } */
 
 
 void qcu_cudaHostGetDevicePointer(VirtioQCArg *arg, struct virtio_qc_mmap *priv)
