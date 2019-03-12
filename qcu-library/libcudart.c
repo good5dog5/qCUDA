@@ -1044,6 +1044,7 @@ cudaError_t cudaHostAlloc(void **pHost, uint64_t size, unsigned int flags)
 	VirtioQCArg arg;
 	memset(&arg, 0, sizeof(VirtioQCArg));
 
+    ptrace("flags is %d\n", flags);
     ptrace("size is %zu\n", (size_t)size);
 	*pHost = __zcmalloc(ALIGN_UP(size, MEMORY_ALIGNMENT));
     /* ptrace("sizeof (pHostUnaligned) is:%zu\n", sizeof(pHostUnaligned)); */
@@ -1054,21 +1055,9 @@ cudaError_t cudaHostAlloc(void **pHost, uint64_t size, unsigned int flags)
     ptrace("[lib]Pointer is %p\n", *pHost);
 	send_cmd_to_device( VIRTQC_cudaHostAlloc, &arg);
     ptrace("[lib] cuPtr is %p\n", (void*)arg.pB);
+    ptrace("[lib] arg.cmd is %d\n", arg.cmd);
 	return (cudaError_t)arg.cmd;
 
-    /* ptrace("size + memory aligment is %lx", size+MEMORY_ALIGNMENT); */
-	/* void *pHostUnaligned = __zcmalloc(size + MEMORY_ALIGNMENT); */
-	/* *pHost = (void *) ALIGN_UP(pHostUnaligned, MEMORY_ALIGNMENT); */
-
-    /* ptrace("[qcu-library] pass align_up:%p\n", *pHost); */
-	/* doArgAssignmentWithCasting( arg.pA, *pHost, size); */
-	/* arg.flag = flags; */
-    /* ptrace("[qcu-library] pass doArgAssignment\n"); */
-    /*  */
-	/* send_cmd_to_device( VIRTQC_cudaHostAlloc, &arg); */
-    /* ptrace("[qcu-library] pass send_cmd_to_device\n"); */
-    /* ptrace("Error num is %d\n", arg.cmd); */
-	/* return (cudaError_t)arg.cmd; */
 
 }
 cudaError_t cudaMallocHost(void **pHost, size_t size)

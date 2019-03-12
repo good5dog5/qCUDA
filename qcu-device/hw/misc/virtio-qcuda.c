@@ -945,26 +945,16 @@ static unsigned int BKDRHash(char *ptr, int size)
 // @arg->pBSize: file descriptor of /dev/qcuvf file
 static void qcu_cudaHostAlloc(VirtioQCArg *arg)
 {
-    size_t      size, len;
+    size_t      size;
 	int32_t     fd;
-    uint64_t   *gpa_array;
     char       *cuStartPtr;
     cudaError_t err;
         
     
-    pfunc();
     size      = arg->pASize; 
-    pfunc();
-    gpa_array = gpa_to_hva(arg->pA);
-    pfunc();
     fd  = (int32_t)ldl_p(&arg->pBSize);
-    pfunc();
     err = 0;
 
-    pfunc();
-    // check gpa_array identical
-    dump_gpa_array(gpa_array);
-    pfunc();
 
     // do real cudaHostAlloc
     err = cudaHostAlloc((void**)&cuStartPtr, size, arg->flag);
@@ -974,68 +964,7 @@ static void qcu_cudaHostAlloc(VirtioQCArg *arg)
 
     munmap(cuStartPtr, (size_t) size);
     char * map = mmap(cuStartPtr, (size_t) size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    // 由 cuStartPtr 去寫
-    for (int i=0; i<size; i++) {
-        map[i] = (i%128);
-    }
-
-    /*     #<{(| ptrace("%c", *((char*)cuStartPtr+i)); |)}># */
-    /*     #<{(| ptrace("done\n"); |)}># */
-    /*     #<{(| *((char*)(cuStartPtr+i)) = 'a'; |)}># */
-    /* } */
-
-    // 由 cuStartPtr 去讀
-    /* for (int i=0; i<size; i++) { */
-    /*     ptrace("%c", *((char*)cuStartPtr+i)); */
-        /* ptrace("done\n"); */
-        /* *((char*)(cuStartPtr+i)) = 'a'; */
-    pfunc();
-    // 讀取 fd 看值是否寫入
-    /* char *buF = (char*)malloc(100000000 * sizeof(char)); */
-    /* lseek(fd, 0, SEEK_SET); */
-    /* read(fd, buF, size); */
-
-    /* for (int i=0; i<size; i++) { */
-    /*     ptrace("map: %c\t cuStartPtr: %c\t \n ", map[i], *((char*)(cuStartPtr+i))); */
-    /* } */
-
-    // 讀取 綠色 block, 驗證
-    len = size;
-    /*  */
-    void * addr;
-    ptrace("@@ test_numOfBlocks:%d  BLOCK_SIZE:%d\n", test_numOfBlocks, BLOCK_SIZE);
-
-    /* ptrace("@@ test_gpa_array after: %p\n", test_gpa_array); */
-	/* for(int i = 0; i < test_numOfBlocks; i++) */
-	/* { */
-    /*     ptrace("len is %zu\n", len); */
-	/* 	addr = gpa_to_hva(test_gpa_array[i]); */
-    /*     ptrace("@@  addr: %p\n", addr); */
-    /*     for(int j=0; j<MIN(BLOCK_SIZE, len); j++) { */
-    /*         ptrace("%c", *((char*)(addr+j))); */
-    /*     } */
-    /*     len -= BLOCK_SIZE; */
-	/* }	 */
-
-    /* ptrace("@@ cuStartPtr is "); */
-    /* for (int i=0; i<size; i++) { */
-    /*     ptrace("%c", *((char*)cuStartPtr+i)); */
-    /* } */
-    /*  */
-    /*  */
-    /* for(int i=0; i<size; i++) */
-    /*     ptrace("%c\n",*((char*)cuStartPtr+i)); */
-    /* for(int i=0; i<100;i++) { */
-    /*     cuStartPtr[i] = 'k'; */
-    /*     printf("%c\n", cuStartPtr[i]); */
-    /* } */
-    /* ptrace("@@ [Before] hash: %u\n", BKDRHash((char*) gpa_array, sizeof(int)*len)); */
-    /* err = cudaHostAlloc((void**)&gpa_array, arg->pASize, arg->flag); */
-
-    /* for(int i=0; i<len; i++){*(gpa_array+i) = 1;} */
-    /* ptrace("@@ [After] hash: %u\n", BKDRHash((char*) gpa_array, sizeof(int)*len)); */
-
+    arg->cmd = err;
 
 }
 
@@ -1319,7 +1248,7 @@ static int qcu_cmd_mmap(VirtioQCArg *arg) {
 
 	int32_t   fd; 
 	uint64_t *gpa_array; 
-	void     *addr;
+	void     *addr, *start;
 
     fd        = (int32_t)ldl_p(&arg->pA);
     gpa_array = gpa_to_hva(arg->pB);
@@ -1333,26 +1262,12 @@ static int qcu_cmd_mmap(VirtioQCArg *arg) {
 	for(i = 0; i < arg->pASize; i++)
 	{
 		addr = gpa_to_hva(gpa_array[i]);
-        /* ptrace("@@ addr is %p\n", (void *)addr); */
 		munmap(addr, BLOCK_SIZE);
-   		mmap(addr, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, i*BLOCK_SIZE);
+   		start = mmap(addr, BLOCK_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, i*BLOCK_SIZE);
+        
 	}	
-    int fd_size = lseek(fd, 0, SEEK_END);
-    ptrace("@@ fd_size is %d\n", fd_size);
-    /* addr = gpa_to_hva(gpa_array[0]); */
-    /* for(int k=0; k < fd_size; k++) */
-    /* { */
-    /*         *(char*)(addr+k) = (k%128); */
-    /*         #<{(| ptrace("%d\n", k); |)}># */
-    /* } */
-    /* ptrace("@@ test_gpa_array orig: %p\n", test_gpa_array); */
-    /* for(int j =0; j<test_numOfBlocks; j++) { */
-    /*     addr = gpa_to_hva(test_gpa_array[j]); */
-    /*     ptrace("@@  addr: %p", addr); */
-    /*     for(int k=0; k<BLOCK_SIZE; k++) */
-    /*         ptrace("%c", *(char*)(addr+k)); */
-    /* } */
-
+    /* int fd_size = lseek(fd, 0, SEEK_END); */
+    /* ptrace("@@ fd_size is %d\n", fd_size); */
 
     return 0;
 }
