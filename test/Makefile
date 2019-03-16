@@ -15,6 +15,7 @@ EXE = cudaGetDeviceCount \
 	cudaHostAlloc_internal \
 	cudaPointerTest \
 	cudaHostRegister \
+	cudaRegisterFunction \
 	vectorAdd \
 	bandwidthTest \
 	matrixMul \
@@ -27,48 +28,50 @@ EXES := $(addprefix exe/, $(EXE))
 	
 all: $(EXE)
 
+exe:
+	mkdir -p $@
 
-cudaGetDeviceCount: src/test_cudaGetDeviceCount.cu
+cudaGetDeviceCount: src/test_cudaGetDeviceCount.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaHostAlloc: src/test_cudaHostAlloc.cu
+cudaHostAlloc: src/test_cudaHostAlloc.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaHostAlloc_adv: src/test_cudaHostAlloc_adv.cu
+cudaHostAlloc_adv: src/test_cudaHostAlloc_adv.cu exe
 	$(NVCC) $(INCLUDES)  $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaHostAlloc_internal: src/test_cudaHostAlloc_internal.cu
+cudaHostAlloc_internal: src/test_cudaHostAlloc_internal.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaPointerTest: src/test_cudaPointerTest.cu
+cudaPointerTest: src/test_cudaPointerTest.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-malloc: src/malloc.cu
+malloc: src/malloc.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaHostRegister: src/test_cudaHostRegister.cu
+cudaHostRegister: src/test_cudaHostRegister.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-vectorAdd: src/vectorAdd.cu
+vectorAdd: src/vectorAdd.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-bandwidthTest: src/bandwidthTest.cu
+bandwidthTest: src/bandwidthTest.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-matrixMul: src/matrixMul.cu
+matrixMul: src/matrixMul.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaZeroCopy: src/test_cudaZeroCopy.cu
+cudaZeroCopy: src/test_cudaZeroCopy.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cudaRegisterFunction: src/test_cudaRegisterFunction.cu
+cudaRegisterFunction: src/test_cudaRegisterFunction.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) $(GENCODE_FLAGS)  $< -o exe/$@
 
-cdpSimpleQuicksort: src/cdpSimpleQuicksort.cu
+cdpSimpleQuicksort: src/cdpSimpleQuicksort.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) -dc $(GENCODE_FLAGS) -o cdpSimpleQuicksort.o -c $<
 	$(NVCC) $(NVCCFLAGS) $(GENCODE_FLAGS) -o exe/$@ cdpSimpleQuicksort.o
 
-clock: src/clock.cu
+clock: src/clock.cu exe
 	$(NVCC) $(INCLUDES) $(NVCCFLAGS) -dc $(GENCODE_FLAGS) -o clock.o -c $<
 	$(NVCC) $(NVCCFLAGS) $(GENCODE_FLAGS) -o exe/$@ clock.o
 
