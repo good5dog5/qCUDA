@@ -42,7 +42,7 @@ class qCUDATest(unittest.TestCase):
         print(os.abspath('.'))
 
     def test_vectorAdd(self):
-        sout, serr = execute_cuda_program('vectorAdd')
+        sout, serr = execute_cuda_program('vectorAdd', str(128000000))
         self.assertTrue(isPass('vectorAdd', sout))
 
     def test_matrixMul(self):
@@ -66,7 +66,7 @@ class qCUDATest(unittest.TestCase):
         self.assertTrue(isPass('cudaRegisterFunction', sout))
 
     def test_cudaPointerTest(self):
-        for i in [4*1024*104, 5*1024*1024, 2*1024*1024*1024]:
+        for i in [4*1024*1024, 5*1024*1024, 2*1024*1024*1024]:
             with self.subTest(i=i):
                 sout, serr = execute_cuda_program('cudaPointerTest', str(i), str(0))
                 self.assertTrue(isPass('cudaPointerTest', sout))

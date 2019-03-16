@@ -65,26 +65,25 @@ int main(int argc, char * argv[])
   void * value;
   void **ptr2;
 
-  SIZE      = atoi(argv[1]);
+  SIZE      = atol(argv[1]);
   freezeSec = atoi(argv[2]);
   ptr2      = &value;
 
 
-  /* printf("Before cudaHostAlloc's maps\n"); */
-  /* dump_proc_maps(); */
-  /* printf(COLOR_RED     "This text is RED!"     COLOR_RESET "\n"); */
+  printf("Before cudaHostAlloc's maps\n");
   printf(COLOR_RED "Allocated %ld Kbytes" COLOR_RESET "\n", SIZE/1024);
   /* for(int i=0; i<SIZE; i++) {value[i] = 799;} */
   /* printf(COLOR_RED "[Before] hash val is %u" COLOR_RESET "\n", BKDRHash((char*)value, sizeof(int)*SIZE)); */
 
+  printf("in1");
   cudaHostAlloc(ptr2, SIZE, 0);
-  for (int i =0; i<SIZE/4; i++) {
-    printf("%c", *((char*)(value+i)));
-  }
+  printf("in2");
+  /* for (int i =0; i<SIZE/4; i++) { */
+  /*   printf("%c", *((char*)(value+i))); */
+  /* } */
   printf("\n");
   printf("After cudaHostAlloc's maps\n");
-  count_proc_maps();
-  /* dump_proc_maps(); */
+  /* count_proc_maps(); */
   sleep(freezeSec);
 
 
