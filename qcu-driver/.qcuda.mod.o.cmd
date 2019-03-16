@@ -1,4 +1,4 @@
-cmd_/root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o := gcc -Wp,-MD,/root/prj_qCUDA/qCUDA/qcu-driver/.qcuda.mod.o.d  -nostdinc -isystem /usr/lib/gcc/aarch64-linux-gnu/4.8/include  -I./arch/arm64/include -Iarch/arm64/include/generated/uapi -Iarch/arm64/include/generated  -Iinclude -I./arch/arm64/include/uapi -Iarch/arm64/include/generated/uapi -I./include/uapi -Iinclude/generated/uapi -include ./include/linux/kconfig.h -Iubuntu/include  -D__KERNEL__ -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -mgeneral-regs-only -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fstack-protector -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-var-tracking-assignments -pg -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -std=gnu99 -Wno-declaration-after-statement -Wformat=0  -D"KBUILD_STR(s)=\#s" -D"KBUILD_BASENAME=KBUILD_STR(qcuda.mod)"  -D"KBUILD_MODNAME=KBUILD_STR(qcuda)" -DMODULE  -c -o /root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o /root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.c
+cmd_/root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o := gcc -Wp,-MD,/root/prj_qCUDA/qCUDA/qcu-driver/.qcuda.mod.o.d  -nostdinc -isystem /usr/lib/gcc/aarch64-linux-gnu/4.8/include  -I./arch/arm64/include -Iarch/arm64/include/generated/uapi -Iarch/arm64/include/generated  -Iinclude -I./arch/arm64/include/uapi -Iarch/arm64/include/generated/uapi -I./include/uapi -Iinclude/generated/uapi -include ./include/linux/kconfig.h -Iubuntu/include  -D__KERNEL__ -mlittle-endian -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -std=gnu89 -mgeneral-regs-only -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -Wframe-larger-than=1024 -fstack-protector -Wno-unused-but-set-variable -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-var-tracking-assignments -pg -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -std=gnu99 -Wno-declaration-after-statement -Wformat=0  -D"KBUILD_STR(s)=\#s" -D"KBUILD_BASENAME=KBUILD_STR(qcuda.mod)"  -D"KBUILD_MODNAME=KBUILD_STR(qcuda)" -DMODULE -mcmodel=large  -c -o /root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o /root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.c
 
 source_/root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o := /root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.c
 
@@ -135,6 +135,7 @@ deps_/root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o := \
     $(wildcard include/config/bsd/process/acct.h) \
     $(wildcard include/config/taskstats.h) \
     $(wildcard include/config/audit.h) \
+    $(wildcard include/config/cgroups.h) \
     $(wildcard include/config/inotify/user.h) \
     $(wildcard include/config/fanotify.h) \
     $(wildcard include/config/epoll.h) \
@@ -167,7 +168,6 @@ deps_/root/prj_qCUDA/qCUDA/qcu-driver/qcuda.mod.o := \
     $(wildcard include/config/block.h) \
     $(wildcard include/config/task/xacct.h) \
     $(wildcard include/config/cpusets.h) \
-    $(wildcard include/config/cgroups.h) \
     $(wildcard include/config/futex.h) \
     $(wildcard include/config/debug/preempt.h) \
     $(wildcard include/config/numa/balancing.h) \

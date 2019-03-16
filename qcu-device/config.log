@@ -1,4 +1,4 @@
-# QEMU configure log Wed Oct 31 22:30:26 CST 2018
+# QEMU configure log Tue Mar 12 23:17:29 CST 2019
 # Configured with: './configure' '--enable-cuda' '--target-list=aarch64-softmmu' '--enable-debug' '--enable-debug-info' '--disable-pie'
 #
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -c -o config-temp/qemu-conf.o config-temp/qemu-conf.c
@@ -89,7 +89,7 @@ cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes 
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -g -lpng12
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -g
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -g
-/tmp/ccKPnyqN.o: In function `main':
+/tmp/cc0gXugQ.o: In function `main':
 /home/nvidia/prj_qcuda/qCUDA/qcu-device/config-temp/qemu-conf.c:5: undefined reference to `uuid_generate'
 collect2: error: ld returned 1 exit status
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -g -luuid
@@ -113,7 +113,7 @@ cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes 
 config-temp/qemu-conf.c:2:28: fatal error: sys/capability.h: No such file or directory
 compilation terminated.
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -g
-/tmp/ccCFxx1m.o: In function `main':
+/tmp/ccmrVprd.o: In function `main':
 /home/nvidia/prj_qcuda/qCUDA/qcu-device/config-temp/qemu-conf.c:5: undefined reference to `pthread_create'
 collect2: error: ld returned 1 exit status
 cc -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -g -pthread
@@ -163,12 +163,12 @@ cc -I/usr/local/cuda/include -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_S
 config-temp/qemu-conf.c:1:24: fatal error: sys/endian.h: No such file or directory
 compilation terminated.
 cc -I/usr/local/cuda/include -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -L/usr/local/cuda/lib64 -g
-/tmp/ccO7OKPA.o: In function `main':
+/tmp/ccbgRC5i.o: In function `main':
 /home/nvidia/prj_qcuda/qCUDA/qcu-device/config-temp/qemu-conf.c:2: undefined reference to `sin'
 collect2: error: ld returned 1 exit status
 cc -I/usr/local/cuda/include -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -L/usr/local/cuda/lib64 -g -lm
 cc -I/usr/local/cuda/include -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -L/usr/local/cuda/lib64 -g
-/tmp/ccETalHd.o: In function `main':
+/tmp/ccOQizkF.o: In function `main':
 /home/nvidia/prj_qcuda/qCUDA/qcu-device/config-temp/qemu-conf.c:4: undefined reference to `timer_create'
 collect2: error: ld returned 1 exit status
 cc -I/usr/local/cuda/include -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -Wstrict-prototypes -Wredundant-decls -Wall -Wundef -Wwrite-strings -Wmissing-prototypes -fno-strict-aliasing -fno-common -Wendif-labels -Wmissing-include-dirs -Wempty-body -Wnested-externs -Wformat-security -Wformat-y2k -Winit-self -Wignored-qualifiers -Wold-style-declaration -Wold-style-definition -Wtype-limits -fstack-protector-strong -I/usr/include/libpng12 -o config-temp/qemu-conf.exe config-temp/qemu-conf.c -L/usr/local/cuda/lib64 -g -pthread -lrt

@@ -24,13 +24,13 @@
 
 #include "qcuda_common.h"
 
-#if 1
+#if 0
 #define pfunc() printk("[pfunc] %s : %d\n", __func__, __LINE__)
 #else
 #define pfunc()
 #endif
 
-#if 1
+#if 0
 #define ptrace(fmt, ...)  printk("[ptrace] [%s:%d] " fmt, __func__, __LINE__, ##__VA_ARGS__);
 #else
 #define ptrace(fmt, arg...)

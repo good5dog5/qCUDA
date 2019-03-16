@@ -18,6 +18,7 @@
  */
 
 #include <stdio.h>
+#include <sys/time.h>
 
 // For the CUDA runtime routines (prefixed with "cuda_")
 #include <cuda_runtime.h>
@@ -44,13 +45,20 @@ vectorAdd(const float *A, const float *B, float *C, int numElements)
  * Host main routine
  */
 int
-main(void)
+main(int argc, char *argv[])
 {
+
+    struct timeval start, stop;
+    double msecs = 0;
+
+    gettimeofday(&start, NULL);
+
+
     // Error code to check return values for CUDA calls
     cudaError_t err = cudaSuccess;
 
     // Print the vector length to be used, and compute its size
-    int numElements = 50000;
+    int numElements = strtol(argv[1], NULL, 10);
     size_t size = numElements * sizeof(float);
     printf("[Vector addition of %d elements]\n", numElements);
 
@@ -192,7 +200,10 @@ main(void)
     free(h_B);
     free(h_C);
 
+
+    gettimeofday(&stop, NULL);
+    msecs = (double)(stop.tv_usec - start.tv_usec) / 1000 + (double)(stop.tv_sec - start.tv_sec) * 1000;
+    printf("time taken %.3f msec\n",msecs);
     printf("Done\n");
     return 0;
 }
-

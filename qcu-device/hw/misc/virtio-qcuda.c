@@ -16,13 +16,13 @@
 //#define AUTO_ASSIGN_GPU_ENABLE
 
 
-#if 1
+#if 0
 #define pfunc() printf("@@@ %s at line %d\n", __func__, __LINE__)
 #else
 #define pfunc()
 #endif
 
-#if 1
+#if 0
 #define ptrace(fmt, arg...) \
 	printf("" fmt, ##arg)
 #else
