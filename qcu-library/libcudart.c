@@ -1046,6 +1046,7 @@ cudaError_t cudaHostAlloc(void **pHost, uint64_t size, unsigned int flags)
 
     ptrace("flags is %d\n", flags);
     ptrace("size is %zu\n", (size_t)size);
+    time_begin();
 	*pHost = __zcmalloc(ALIGN_UP(size, MEMORY_ALIGNMENT));
     /* ptrace("sizeof (pHostUnaligned) is:%zu\n", sizeof(pHostUnaligned)); */
     /* *pHost = (void *) ALIGN_UP(pHostUnaligned, MEMORY_ALIGNMENT); */
@@ -1056,6 +1057,7 @@ cudaError_t cudaHostAlloc(void **pHost, uint64_t size, unsigned int flags)
 	send_cmd_to_device( VIRTQC_cudaHostAlloc, &arg);
     ptrace("[lib] cuPtr is %p\n", (void*)arg.pB);
     ptrace("[lib] arg.cmd is %d\n", arg.cmd);
+    time_end(t_cudaHostAlloc);
 	return (cudaError_t)arg.cmd;
 
 

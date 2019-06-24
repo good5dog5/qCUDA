@@ -737,6 +737,7 @@ testHostToDeviceTransfer(unsigned int memSize, memoryMode memMode, bool wc)
     {
 #if CUDART_VERSION >= 2020
         //pinned memory mode - use special function to get OS-pinned memory
+        printf("use cudaHostaAlloc\n");
         checkCudaErrors(cudaHostAlloc((void **)&h_odata, memSize, (wc) ? cudaHostAllocWriteCombined : 0));
 #else
         //pinned memory mode - use special function to get OS-pinned memory
@@ -788,6 +789,7 @@ testHostToDeviceTransfer(unsigned int memSize, memoryMode memMode, bool wc)
     {
         for (unsigned int i = 0; i < MEMCOPY_ITERATIONS; i++)
         {
+            printf("Async\n");
             checkCudaErrors(cudaMemcpyAsync(d_idata, h_odata, memSize,
                                             cudaMemcpyHostToDevice, 0));
         }

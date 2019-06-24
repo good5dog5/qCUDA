@@ -5,7 +5,7 @@ ARCH= -gencode arch=compute_62,code=sm_62
 
 HOST_COMPILER ?= g++
 NVCC          := $(CUDA_HOME)/bin/nvcc -ccbin $(HOST_COMPILER)
-NVCCFLAGS     := -m64  --cudart=shared $(ARCH)
+NVCCFLAGS     := -m64   --cudart=shared $(ARCH)
 
 .PHONY: clean
 
